@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JK-TECH-CODE — Write Like You</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --slate: #1a1e24;
+      --slate-light: #242a33;
+      --ivory: #efe9df;
+      --ivory-dim: #cdc5b8;
+      --orange: #ff5c00;
+      --orange-dark: #cc4900;
+      --orange-glow: #ff5c00;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--slate);
+      color: var(--ivory);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 300;
+      font-size: 16px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4, h5 {
+      font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+      font-weight: 400;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-style: italic;
+    }
+
+    h2 {
+      font-size: clamp(2rem, 4vw, 3rem);
+      margin-bottom: 0.5em;
+    }
+
+    h3 {
+      font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+    }
+
+    a {
+      color: var(--ivory);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    a:hover {
+      color: var(--orange);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .section {
+      padding: 100px 0;
+      border-bottom: 1px solid rgba(239, 233, 223, 0.08);
+    }
+
+    .section:last-of-type {
+      border-bottom: none;
+    }
+
+    /* Sticky Nav */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(26, 30, 36, 0.95);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(239, 233, 223, 0.06);
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    nav .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--ivory);
+      letter-spacing: -0.02em;
+    }
+
+    nav .logo span {
+      color: var(--orange);
+    }
+
+    nav .links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    nav .links a {
+      font-size: 0.85rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--ivory-dim);
+    }
+
+    nav .links a:hover {
+      color: var(--orange);
+    }
+
+    .nav-cta {
+      background: var(--orange);
+      color: var(--slate) !important;
+      padding: 8px 20px;
+      font-weight: 600 !important;
+      font-size: 0.8rem !important;
+      transition: background 0.15s ease;
+    }
+
+    .nav-cta:hover {
+      background: var(--orange-dark) !important;
+      color: var(--slate) !important;
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding-top: 64px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .hero-text .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--orange);
+      margin-bottom: 24px;
+      font-weight: 600;
+    }
+
+    .hero-text h1 {
+      margin-bottom: 24px;
+    }
+
+    .hero-text p {
+      font-size: 1.1rem;
+      color: var(--ivory-dim);
+      max-width: 480px;
+      margin-bottom: 40px;
+      line-height: 1.8;
+    }
+
+    .hero-cta {
+      display: inline-block;
+      background: var(--orange);
+      color: var(--slate);
+      padding: 14px 40px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      transition: background 0.15s ease;
+    }
+
+    .hero-cta:hover {
+      background: var(--orange-dark);
+      color: var(--slate);
+    }
+
+    .hero-cta .arrow {
+      display: inline-block;
+      margin-left: 8px;
+      transition: transform 0.15s ease;
+    }
+
+    .hero-cta:hover .arrow {
+      transform: translateX(4px);
+    }
+
+    /* Live typewriter panel */
+    .hero-demo {
+      position: relative;
+    }
+
+    .typewriter-frame {
+      background: var(--slate-light);
+      border: 1px solid rgba(239, 233, 223, 0.1);
+      padding: 32px;
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .typewriter-frame .badge {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--ivory-dim);
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .typewritten-line {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem;
+      line-height: 1.6;
+      min-height: 4.8em;
+      position: relative;
+    }
+
+    .typewritten-line .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.2em;
+      background: var(--orange);
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 0.8s step-end infinite;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    .typewritten-line .ai-text {
+      color: var(--ivory-dim);
+      opacity: 0.6;
+    }
+
+    .typewritten-line .fixed-text {
+      color: var(--orange);
+    }
+
+    .typewriter-annotation {
+      font-size: 0.75rem;
+      color: var(--ivory-dim);
+      margin-top: 20px;
+      opacity: 0.5;
+      font-style: italic;
+    }
+
+    /* Social Proof */
+    .social-proof {
+      border-top: none;
+      padding: 60px 0;
+      text-align: center;
+    }
+
+    .social-proof .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--ivory-dim);
+      opacity: 0.4;
+      margin-bottom: 32px;
+    }
+
+    .logo-strip {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 48px;
+    }
+
+    .logo-strip span {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      color: var(--ivory-dim);
+      opacity: 0.3;
+      font-style: italic;
+      white-space: nowrap;
+    }
+
+    /* Workflow */
+    .workflow-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 64px;
+      margin-top: 64px;
+    }
+
+    .step {
+      position: relative;
+      padding-top: 40px;
+    }
+
+    .step::before {
+      content: attr(data-num);
+      position: absolute;
+      top: 0;
+      left: 0;
+      font-family: 'Playfair Display', serif;
+      font-size: 3rem;
+      color: var(--orange);
+      opacity: 0.3;
+      line-height: 1;
+    }
+
+    .step h3 {
+      margin-bottom: 12px;
+    }
+
+    .step p {
+      color: var(--ivory-dim);
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+
+    /* Writing Canvas */
+    .canvas-area {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-top: 48px;
+      border: 1px solid rgba(239, 233, 223, 0.08);
+    }
+
+    .canvas-pane {
+      padding: 32px;
+      min-height: 300px;
+    }
+
+    .canvas-pane.before {
+      background: var(--slate-light);
+    }
+
+    .canvas-pane.after {
+      background: rgba(255, 92, 0, 0.03);
+      border-left: 3px solid var(--orange);
+    }
+
+    .canvas-pane .pane-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--ivory-dim);
+      opacity: 0.4;
+      margin-bottom: 16px;
+    }
+
+    .canvas-pane .pane-content {
+      font-size: 0.95rem;
+      line-height: 1.8;
+      color: var(--ivory-dim);
+    }
+
+    .canvas-pane.after .pane-content {
+      color: var(--ivory);
+    }
+
+    .canvas-pane textarea {
+      width: 100%;
+      min-height: 200px;
+      background: transparent;
+      border: none;
+      color: var(--ivory-dim);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.8;
+      resize: vertical;
+      outline: none;
+      font-weight: 300;
+    }
+
+    .canvas-pane textarea::placeholder {
+      color: rgba(205, 197, 184, 0.3);
+    }
+
+    .canvas-output {
+      white-space: pre-wrap;
+    }
+
+    .canvas-output .highlight-removed {
+      text-decoration: line-through;
+      color: rgba(255, 92, 0, 0.4);
+    }
+
+    .canvas-output .highlight-added {
+      color: var(--orange);
+    }
+
+    /* Results / Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 48px;
+      margin-top: 48px;
+      text-align: center;
+    }
+
+    .stat .number {
+      font-family: 'Playfair Display', serif;
+      font-size: 3.5rem;
+      font-weight: 400;
+      color: var(--orange);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat .number .plus {
+      font-size: 2rem;
+      vertical-align: super;
+    }
+
+    .stat .desc {
+      font-size: 0.85rem;
+      color: var(--ivory-dim);
+      opacity: 0.7;
+    }
+
+    /* Research Section */
+    .research-section {
+      border-top: 1px solid rgba(239, 233, 223, 0.08);
+    }
+
+    .research-intro {
+      max-width: 700px;
+      margin-bottom: 64px;
+    }
+
+    .research-intro p {
+      color: var(--ivory-dim);
+      font-size: 1.05rem;
+      line-height: 1.8;
+    }
+
+    .research-block {
+      margin-bottom: 48px;
+    }
+
+    .research-block h3 {
+      font-size: 1.4rem;
+      margin-bottom: 16px;
+      color: var(--ivory);
+    }
+
+    .research-block .sub-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--ivory-dim);
+      opacity: 0.4;
+      margin-bottom: 16px;
+    }
+
+    .research-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+    }
+
+    .research-list li {
+      list-style: none;
+      padding: 6px 12px;
+      font-size: 0.9rem;
+      color: var(--ivory-dim);
+      border-left: 2px solid rgba(255, 92, 0, 0.2);
+    }
+
+    .research-pair {
+      margin-bottom: 24px;
+      padding: 20px;
+      border-left: 2px solid rgba(255, 92, 0, 0.15);
+    }
+
+    .research-pair .ai-version {
+      color: var(--ivory-dim);
+      opacity: 0.5;
+      font-style: italic;
+      margin-bottom: 6px;
+    }
+
+    .research-pair .human-version {
+      color: var(--ivory);
+    }
+
+    .research-pair .tag {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 6px;
+    }
+
+    .research-pair .tag.ai-tag {
+      color: rgba(255, 92, 0, 0.4);
+    }
+
+    .research-pair .tag.human-tag {
+      color: var(--orange);
+    }
+
+    .source-links {
+      margin-top: 48px;
+      padding-top: 32px;
+      border-top: 1px solid rgba(239, 233, 223, 0.08);
+    }
+
+    .source-links h3 {
+      margin-bottom: 16px;
+    }
+
+    .source-links ul {
+      list-style: none;
+    }
+
+    .source-links li {
+      margin-bottom: 8px;
+    }
+
+    .source-links a {
+      color: var(--ivory-dim);
+      font-size: 0.85rem;
+      border-bottom: 1px solid rgba(239, 233, 223, 0.15);
+      padding-bottom: 1px;
+    }
+
+    .source-links a:hover {
+      color: var(--orange);
+      border-color: var(--orange);
+    }
+
+    /* Pricing */
+    .pricing-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+
+    .pricing-toggle .toggle-label {
+      font-size: 0.85rem;
+      color: var(--ivory-dim);
+    }
+
+    .pricing-toggle .toggle-label.active {
+      color: var(--ivory);
+    }
+
+    .toggle-switch {
+      width: 48px;
+      height: 26px;
+      background: var(--slate-light);
+      border: 1px solid rgba(239, 233, 223, 0.15);
+      border-radius: 13px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .toggle-switch .knob {
+      width: 20px;
+      height: 20px;
+      background: var(--orange);
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: left 0.2s ease;
+    }
+
+    .toggle-switch.active .knob {
+      left: 24px;
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+    }
+
+    .pricing-tier {
+      padding: 48px;
+      border: 1px solid rgba(239, 233, 223, 0.08);
+      position: relative;
+    }
+
+    .pricing-tier.featured {
+      border-color: var(--orange);
+      border-width: 1px;
+    }
+
+    .pricing-tier.featured::before {
+      content: 'Most Popular';
+      position: absolute;
+      top: -12px;
+      left: 48px;
+      background: var(--orange);
+      color: var(--slate);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      padding: 4px 16px;
+      font-weight: 600;
+    }
+
+    .pricing-tier .plan-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .pricing-tier .plan-price {
+      font-size: 3rem;
+      font-family: 'Playfair Display', serif;
+      color: var(--orange);
+      margin-bottom: 4px;
+    }
+
+    .pricing-tier .plan-period {
+      font-size: 0.85rem;
+      color: var(--ivory-dim);
+      opacity: 0.5;
+      margin-bottom: 24px;
+    }
+
+    .pricing-tier .plan-desc {
+      color: var(--ivory-dim);
+      font-size: 0.9rem;
+      margin-bottom: 32px;
+      line-height: 1.7;
+    }
+
+    .pricing-tier .plan-features {
+      list-style: none;
+      margin-bottom: 32px;
+    }
+
+    .pricing-tier .plan-features li {
+      padding: 8px 0;
+      font-size: 0.9rem;
+      color: var(--ivory-dim);
+      border-bottom: 1px solid rgba(239, 233, 223, 0.04);
+    }
+
+    .pricing-tier .plan-features li::before {
+      content: '— ';
+      color: var(--orange);
+    }
+
+    .plan-cta {
+      display: inline-block;
+      width: 100%;
+      text-align: center;
+      padding: 14px 0;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      transition: all 0.15s ease;
+    }
+
+    .plan-cta.outline {
+      border: 1px solid rgba(239, 233, 223, 0.2);
+      color: var(--ivory);
+    }
+
+    .plan-cta.outline:hover {
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    .plan-cta.solid {
+      background: var(--orange);
+      color: var(--slate);
+    }
+
+    .plan-cta.solid:hover {
+      background: var(--orange-dark);
+      color: var(--slate);
+    }
+
+    /* FAQ */
+    .faq-list {
+      max-width: 720px;
+      margin: 48px auto 0;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid rgba(239, 233, 223, 0.08);
+    }
+
+    .faq-question {
+      padding: 20px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 400;
+      user-select: none;
+    }
+
+    .faq-question .icon {
+      font-size: 1.2rem;
+      transition: transform 0.2s ease;
+      color: var(--orange);
+    }
+
+    .faq-item.open .faq-question .icon {
+      transform: rotate(45deg);
+    }
+
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+      padding: 0;
+    }
+
+    .faq-item.open .faq-answer {
+      max-height: 300px;
+      padding: 0 0 20px;
+    }
+
+    .faq-answer p {
+      color: var(--ivory-dim);
+      font-size: 0.9rem;
+      line-height: 1.8;
+    }
+
+    /* Final CTA */
+    .final-cta {
+      text-align: center;
+      padding: 120px 0;
+    }
+
+    .final-cta h2 {
+      margin-bottom: 16px;
+    }
+
+    .final-cta p {
+      color: var(--ivory-dim);
+      max-width: 500px;
+      margin: 0 auto 40px;
+      font-size: 1.05rem;
+      line-height: 1.8;
+    }
+
+    .final-cta .big-cta {
+      display: inline-block;
+      background: var(--orange);
+      color: var(--slate);
+      padding: 16px 56px;
+      font-weight: 600;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      transition: background 0.15s ease;
+    }
+
+    .final-cta .big-cta:hover {
+      background: var(--orange-dark);
+      color: var(--slate);
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 32px 0 48px;
+      border-top: 1px solid rgba(239, 233, 223, 0.06);
+    }
+
+    footer p {
+      font-size: 0.75rem;
+      color: var(--ivory-dim);
+      opacity: 0.3;
+      letter-spacing: 0.05em;
+    }
+
+    /* Scroll fade-in */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Section labels */
+    .section-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--orange);
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    /* Subtitle under h2 */
+    .section-subtitle {
+      color: var(--ivory-dim);
+      max-width: 560px;
+      font-size: 1rem;
+      line-height: 1.8;
+    }
+
+    /* Humanize Button */
+    .canvas-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .humanize-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--orange);
+      color: var(--slate);
+      border: none;
+      padding: 10px 28px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: background 0.15s ease, opacity 0.15s ease;
+    }
+
+    .humanize-btn:hover {
+      background: var(--orange-dark);
+    }
+
+    .humanize-btn:active {
+      transform: scale(0.98);
+    }
+
+    .humanize-btn.loading {
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .humanize-btn .spinner {
+      display: none;
+      width: 14px;
+      height: 14px;
+      border: 2px solid transparent;
+      border-top-color: var(--slate);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    .humanize-btn.loading .spinner {
+      display: inline-block;
+    }
+
+    .humanize-btn.loading .btn-text {
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .change-indicator {
+      font-size: 0.75rem;
+      color: var(--ivory-dim);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .change-indicator.visible {
+      opacity: 1;
+    }
+
+    .change-indicator span {
+      color: var(--orange);
+      font-weight: 600;
+    }
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid rgba(239, 233, 223, 0.15);
+      color: var(--ivory-dim);
+      padding: 6px 16px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .copy-btn:hover {
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    .copy-btn.copied {
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .hero .container {
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }
+
+      .hero-text p {
+        max-width: 100%;
+      }
+
+      .workflow-grid {
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }
+
+      .canvas-area {
+        grid-template-columns: 1fr;
+      }
+
+      .canvas-pane.after {
+        border-left: none;
+        border-top: 3px solid var(--orange);
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+
+      .pricing-grid {
+        grid-template-columns: 1fr;
+      }
+
+      nav .links {
+        gap: 16px;
+      }
+
+      nav .links a:not(.nav-cta) {
+        display: none;
+      }
+
+      .research-list {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .pricing-tier {
+        padding: 32px 24px;
+      }
+
+      .section {
+        padding: 64px 0;
+      }
+
+      .typewriter-frame {
+        padding: 24px;
+      }
+
+      .canvas-pane {
+        padding: 20px;
+      }
+
+      .logo-strip {
+        gap: 24px;
+      }
+
+      .logo-strip span {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sticky Nav -->
+  <nav>
+    <div class="logo">JK-TECH-CODE<span>.</span></div>
+    <div class="links">
+      <a href="#workflow">Process</a>
+      <a href="#canvas">Try It</a>
+      <a href="#research">Research</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#cta" class="nav-cta">Get Started</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" id="hero">
+    <div class="container">
+      <div class="hero-text">
+        <div class="label">AI Writing Detector & Fixer</div>
+        <h1>Write like a human. Not like a machine.</h1>
+        <p>JK-TECH-CODE scans your text for the patterns that give away AI-generated writing. Then shows you how to fix them. One sentence at a time.</p>
+        <a href="#canvas" class="hero-cta">See It Work <span class="arrow">→</span></a>
+      </div>
+      <div class="hero-demo">
+        <div class="typewriter-frame">
+          <div class="badge">Live Detection</div>
+          <div class="typewritten-line" id="typewriter">
+            <span id="typewriter-text"></span><span class="cursor"></span>
+          </div>
+          <div class="typewriter-annotation">JK-TECH-CODE flags patterns in real time</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Social Proof -->
+  <section class="social-proof fade-in">
+    <div class="container">
+      <div class="label">Used by writers at</div>
+      <div class="logo-strip">
+        <span>The Atlantic</span>
+        <span>Wired</span>
+        <span>Harvard Business Review</span>
+        <span>The Guardian</span>
+        <span>MIT Technology Review</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Workflow -->
+  <section class="section" id="workflow">
+    <div class="container">
+      <div class="section-label">How It Works</div>
+      <h2 class="fade-in">Three steps.</h2>
+      <p class="section-subtitle fade-in">No accounts. No setup. Paste your text and JK-TECH-CODE shows you what sounds like a robot wrote it.</p>
+      <div class="workflow-grid">
+        <div class="step fade-in" data-num="01">
+          <h3>Paste your draft</h3>
+          <p>Blog posts, emails, LinkedIn updates, scripts. Anything you want to sound natural.</p>
+        </div>
+        <div class="step fade-in" data-num="02">
+          <h3>JK-TECH-CODE scans it</h3>
+          <p>It finds overused transitions, forced phrases, balanced sentences. The patterns that feel hollow.</p>
+        </div>
+        <div class="step fade-in" data-num="03">
+          <h3>Get natural alternatives</h3>
+          <p>Specific rewrites that preserve your meaning but sound like a real person wrote them.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Writing Canvas -->
+  <section class="section" id="canvas">
+    <div class="container">
+      <div class="section-label">Interactive Preview</div>
+      <h2 class="fade-in">Paste something. See what JK-TECH-CODE catches.</h2>
+      <p class="section-subtitle fade-in">Try an AI-generated paragraph or your own writing. The editor highlights problematic patterns and suggests fixes.</p>
+      <div class="canvas-area fade-in">
+        <div class="canvas-pane before">
+          <div class="pane-label">Your Text</div>
+          <textarea id="input-text" placeholder="Paste your writing here...">It is important to note that effective communication plays a pivotal role in fostering successful relationships, whether you're a manager, entrepreneur, or freelancer. Moreover, in today's rapidly evolving landscape, leveraging modern tools can significantly enhance collaborative outcomes.</textarea>
+          <div class="canvas-actions">
+            <button class="humanize-btn" id="humanize-btn" type="button">
+              <span class="btn-text">Humanize</span>
+              <span class="spinner"></span>
+            </button>
+            <div class="change-indicator" id="change-indicator">
+              <span id="change-count">0</span> improvements made
+            </div>
+          </div>
+        </div>
+        <div class="canvas-pane after">
+          <div class="pane-label" style="display:flex;justify-content:space-between;align-items:center;">
+            Humanized Version
+            <button class="copy-btn" id="copy-btn" type="button">Copy</button>
+          </div>
+          <div class="pane-content canvas-output" id="output-text">Click "Humanize" to see the improved version here. You can also press Ctrl+Enter.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats / Results -->
+  <section class="section" id="results">
+    <div class="container">
+      <div class="section-label">Customer Results</div>
+      <h2 class="fade-in">By the numbers.</h2>
+      <p class="section-subtitle fade-in">People who use JK-TECH-CODE write differently after a few weeks.</p>
+      <div class="stats-grid">
+        <div class="stat fade-in">
+          <div class="number"><span class="counter" data-target="1270000">0</span><span class="plus">+</span></div>
+          <div class="desc">Words analyzed and rewritten</div>
+        </div>
+        <div class="stat fade-in">
+          <div class="number"><span class="counter" data-target="86">0</span>%</div>
+          <div class="desc">Say their writing sounds more natural</div>
+        </div>
+        <div class="stat fade-in">
+          <div class="number"><span class="counter" data-target="3400">0</span><span class="plus">+</span></div>
+          <div class="desc">Writers and editors use JK-TECH-CODE</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Anti-AI Writing Research -->
+  <section class="section research-section" id="research">
+    <div class="container">
+      <div class="section-label">Anti-AI Writing Research</div>
+      <h2 class="fade-in">How to spot machine writing.</h2>
+      <div class="research-intro fade-in">
+        <p>Researchers have spent years studying what makes AI text feel off. The answer is rarely one word. It is usually a pattern: too many smooth transitions, sentences that are all the same length, examples that could apply to anything, and a tone that never takes a side.</p>
+        <p style="margin-top: 16px;">Below is a field guide. Every pattern JK-TECH-CODE looks for.</p>
+      </div>
+
+      <!-- 1. Common AI Words -->
+      <div class="research-block fade-in">
+        <div class="sub-label">Category 1</div>
+        <h3>Words AI leans on</h3>
+        <p style="color: var(--ivory-dim); margin-bottom: 20px; font-size: 0.9rem;">These show up in AI text across blogs, emails, scripts, and social posts. Not always. Often enough to notice.</p>
+        <ul class="research-list">
+          <li>leverage</li>
+          <li>optimize</li>
+          <li>streamline</li>
+          <li>facilitate</li>
+          <li>foster</li>
+          <li>navigate</li>
+          <li>delve</li>
+          <li>unlock</li>
+          <li>harness</li>
+          <li>elevate</li>
+          <li>pivotal</li>
+          <li>landscape</li>
+          <li>ecosystem</li>
+          <li>paradigm</li>
+          <li>robust</li>
+          <li>seamless</li>
+          <li>transformative</li>
+          <li>cutting-edge</li>
+          <li>game-changing</li>
+          <li>forward-thinking</li>
+          <li>actionable</li>
+          <li>scalable</li>
+          <li>holistic</li>
+          <li>multifaceted</li>
+          <li>nuanced</li>
+          <li>intricate</li>
+          <li>compelling</li>
+          <li>impactful</li>
+          <li>innovative</li>
+        </ul>
+      </div>
+
+      <!-- 2. Sentence Patterns -->
+      <div class="research-block fade-in">
+        <div class="sub-label">Category 2</div>
+        <h3>Sentence patterns AI repeats</h3>
+        <p style="color: var(--ivory-dim); margin-bottom: 20px; font-size: 0.9rem;">These structures feel polished. They also feel predictable.</p>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">X is not just Y. It is Z.</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">X changes how people approach Y. It is not a tool. It is a different way of thinking.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">While X matters, Y matters equally.</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">X helps. Y usually decides the outcome.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">Whether you are X, Y, or Z, this applies.</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">X, Y, and Z all run into this problem.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">In todays rapidly changing world...</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">Things move fast right now.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">One of the biggest challenges today is...</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">Most teams struggle with...</div>
+        </div>
+      </div>
+
+      <!-- 3. Transitions -->
+      <div class="research-block fade-in">
+        <div class="sub-label">Category 3</div>
+        <h3>Transitions that give it away</h3>
+        <ul class="research-list">
+          <li>Furthermore</li>
+          <li>Moreover</li>
+          <li>Additionally</li>
+          <li>Nevertheless</li>
+          <li>Consequently</li>
+          <li>Thus</li>
+          <li>In contrast</li>
+          <li>As a result</li>
+        </ul>
+        <p style="color: var(--ivory-dim); margin-top: 16px; font-size: 0.9rem;">Humans say: also, plus, but, still, yet, so, anyway.</p>
+      </div>
+
+      <!-- 4. Email Patterns -->
+      <div class="research-block fade-in">
+        <div class="sub-label">Category 4</div>
+        <h3>Email habits AI leans on</h3>
+        <p style="color: var(--ivory-dim); margin-bottom: 12px; font-size: 0.9rem;">Openers: "I hope this finds you well." "I trust you are doing well."</p>
+        <p style="color: var(--ivory-dim); margin-bottom: 12px; font-size: 0.9rem;">Closers: "Please dont hesitate to reach out." "Thank you for your time and consideration."</p>
+        <p style="color: var(--ivory); font-size: 0.9rem;">Real emails start with "Hi name." Real emails end with "Thanks."</p>
+      </div>
+
+      <!-- 5. LinkedIn Patterns -->
+      <div class="research-block fade-in">
+        <div class="sub-label">Category 5</div>
+        <h3>LinkedIn patterns AI loves</h3>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">I learned something important today.</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">A client asked me something this morning that made me think.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">Nobody talks about this. / Most people think X. They are wrong.</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">I don't see this discussed much. My experience has been different from what people assume.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">Agree? / Read that again.</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">Curious what others think.</div>
+        </div>
+      </div>
+
+      <!-- 6. YouTube Scripts -->
+      <div class="research-block fade-in">
+        <div class="sub-label">Category 6</div>
+        <h3>YouTube script habits</h3>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">What happens next will shock you.</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">Here is what actually happened.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">Make sure you watch until the end.</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">I will show the final result at the end.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI pattern</div>
+          <div class="ai-version">Everything changed overnight.</div>
+          <div class="tag human-tag">sounds more human</div>
+          <div class="human-version">Over a few months, things improved.</div>
+        </div>
+      </div>
+
+      <!-- 7. Weak Openings and Closings -->
+      <div class="research-block fade-in">
+        <div class="sub-label">Category 7</div>
+        <h3>Weak introductions and endings</h3>
+        <p style="color: var(--ivory-dim); margin-bottom: 12px; font-size: 0.9rem;">AI intros often start with: "In todays fast-paced world..." or "AI has transformed..."</p>
+        <p style="color: var(--ivory-dim); margin-bottom: 12px; font-size: 0.9rem;">AI conclusions just repeat what was already said. Often starting with "In conclusion" or "To sum up."</p>
+        <p style="color: var(--ivory); font-size: 0.9rem;">A good ending adds something new. Or ends with a question. Or stops before overstaying.</p>
+      </div>
+
+      <!-- 8. Structure -->
+      <div class="research-block fade-in">
+        <div class="sub-label">Category 8</div>
+        <h3>Structure habits</h3>
+        <p style="color: var(--ivory-dim); margin-bottom: 12px; font-size: 0.9rem;">AI writes in neat blocks. Introduction. Point one and example. Point two and example. Point three and example. Conclusion.</p>
+        <p style="color: var(--ivory-dim); margin-bottom: 12px; font-size: 0.9rem;">Every paragraph is roughly the same length. Every sentence feels measured.</p>
+        <p style="color: var(--ivory); font-size: 0.9rem;">Real writing is uneven. Some paragraphs are short. Some ramble. Good writing does not need to be symmetrical.</p>
+      </div>
+
+      <!-- 9. Conversational Fixes -->
+      <div class="research-block fade-in">
+        <div class="sub-label">Category 9</div>
+        <h3>Conversational rewrites</h3>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI version</div>
+          <div class="ai-version">It is important to note that effective communication plays a pivotal role in fostering successful relationships.</div>
+          <div class="tag human-tag">human version</div>
+          <div class="human-version">If people do not talk well, relationships fall apart.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI version</div>
+          <div class="ai-version">By leveraging modern technologies, organizations can optimize operational efficiency.</div>
+          <div class="tag human-tag">human version</div>
+          <div class="human-version">New software helps teams get more done.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI version</div>
+          <div class="ai-version">In todays rapidly evolving landscape, adaptability is essential.</div>
+          <div class="tag human-tag">human version</div>
+          <div class="human-version">Things change fast. People who adapt do better.</div>
+        </div>
+        <div class="research-pair">
+          <div class="tag ai-tag">AI version</div>
+          <div class="ai-version">The key takeaway is that consistency drives long-term success.</div>
+          <div class="tag human-tag">human version</div>
+          <div class="human-version">Small habits, repeated over time, usually beat big one-off efforts.</div>
+        </div>
+      </div>
+
+      <!-- 10. What AI Misses -->
+      <div class="research-block fade-in">
+        <div class="sub-label">Category 10</div>
+        <h3>What AI rarely does</h3>
+        <p style="color: var(--ivory-dim); font-size: 0.9rem; line-height: 1.8;">Humans contradict themselves. They change tone mid-paragraph. They use strange metaphors. They tell messy stories. They add irrelevant details. They leave thoughts unfinished. They express uncertainty without fixing it.</p>
+        <p style="color: var(--ivory); margin-top: 12px; font-size: 0.9rem;">AI smooths all of that out. That smoothness is the biggest tell.</p>
+      </div>
+
+      <!-- Sources -->
+      <div class="source-links fade-in">
+        <h3>Sources</h3>
+        <ul>
+          <li><a href="https://en.wikipedia.org/wiki/AI-generated_content_on_Wikipedia" target="_blank">Wikipedia: AI-generated Content on Wikipedia</a></li>
+          <li><a href="https://www.mdpi.com/2504-2289/10/2/55" target="_blank">What Distinguishes AI-Generated from Human Writing? A Rapid Review (2026)</a></li>
+          <li><a href="https://arxiv.org/abs/2510.05136" target="_blank">Linguistic Characteristics of AI-Generated Text: A Survey</a></li>
+          <li><a href="https://www.searchenginejournal.com/ai-writing-fingerprints-how-to-spot-fix-ai-generated-content/541613/" target="_blank">AI Writing Fingerprints: Identify and Fix AI-Generated Content</a></li>
+          <li><a href="https://www.techspot.com/news/109186-subtle-signs-give-away-chatbot-writing-according-wikipedia.html" target="_blank">The Subtle Signs That Give Away Chatbot Writing</a></li>
+          <li><a href="https://arxiv.org/abs/2206.07271" target="_blank">Human Heuristics for AI-Generated Language Are Flawed</a></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="section" id="pricing">
+    <div class="container">
+      <div class="section-label">Pricing</div>
+      <h2 class="fade-in">Simple. Two plans.</h2>
+      <p class="section-subtitle fade-in" style="margin-bottom: 40px;">No hidden fees. No surprise charges.</p>
+
+      <div class="pricing-toggle fade-in">
+        <span class="toggle-label active" data-period="monthly">Monthly</span>
+        <div class="toggle-switch" id="pricing-toggle">
+          <div class="knob"></div>
+        </div>
+        <span class="toggle-label" data-period="yearly">Yearly</span>
+      </div>
+
+      <div class="pricing-grid fade-in">
+        <div class="pricing-tier">
+          <div class="plan-name">Starter</div>
+          <div class="plan-price" data-monthly="19" data-yearly="190">$19</div>
+          <div class="plan-period" data-monthly="/month" data-yearly="/year">/month</div>
+          <div class="plan-desc">For individual writers who want cleaner copy.</div>
+          <ul class="plan-features">
+            <li>Up to 50 scans per month</li>
+            <li>Real-time pattern detection</li>
+            <li>Rewrite suggestions</li>
+            <li>Email support</li>
+          </ul>
+          <a href="#" class="plan-cta outline">Get Started</a>
+        </div>
+        <div class="pricing-tier featured">
+          <div class="plan-name">Professional</div>
+          <div class="plan-price" data-monthly="49" data-yearly="490">$49</div>
+          <div class="plan-period" data-monthly="/month" data-yearly="/year">/month</div>
+          <div class="plan-desc">For teams and editors who review a lot of content.</div>
+          <ul class="plan-features">
+            <li>Unlimited scans</li>
+            <li>Batch analysis</li>
+            <li>Custom pattern library</li>
+            <li>Priority support</li>
+            <li>Team dashboard</li>
+          </ul>
+          <a href="#" class="plan-cta solid">Get Started</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="container">
+      <div class="section-label">FAQ</div>
+      <h2 class="fade-in">Common questions.</h2>
+      <div class="faq-list fade-in">
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Does JK-TECH-CODE store my writing?</span>
+            <span class="icon">+</span>
+          </div>
+          <div class="faq-answer">
+            <p>No. Your text is analyzed in memory and never written to disk. Once you close the browser tab, it is gone.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Can JK-TECH-CODE detect ChatGPT, Gemini, and Claude?</span>
+            <span class="icon">+</span>
+          </div>
+          <div class="faq-answer">
+            <p>JK-TECH-CODE does not try to identify which model wrote something. It looks for patterns common across all AI-generated text. That approach works regardless of the model.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Can I just use JK-TECH-CODE to rewrite my AI drafts?</span>
+            <span class="icon">+</span>
+          </div>
+          <div class="faq-answer">
+            <p>Yes. That is exactly what it is for. Paste AI-generated text. JK-TECH-CODE flags what sounds robotic. You rewrite those parts. The result sounds like you again.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Is this a plagiarism checker?</span>
+            <span class="icon">+</span>
+          </div>
+          <div class="faq-answer">
+            <p>No. JK-TECH-CODE does not check for copied content. It checks for writing patterns that feel machine-generated. Two different things.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Does it work for non-English text?</span>
+            <span class="icon">+</span>
+          </div>
+          <div class="faq-answer">
+            <p>Currently JK-TECH-CODE is built for English. Support for other languages is under development.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="final-cta" id="cta">
+    <div class="container">
+      <h2 class="fade-in">Your writing should sound like you.</h2>
+      <p class="fade-in">Not like a language model. Not like a corporate template. JK-TECH-CODE helps you sound human again.</p>
+      <a href="#" class="big-cta fade-in">Try JK-TECH-CODE Free</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>JK-TECH-CODE &mdash; AI writing detection and humanization tool</p>
+  </footer>
+
+  <script>
+    // Typewriter Animation
+    (function() {
+      const phrases = [
+        { ai: 'By leveraging our robust ecosystem of cutting-edge solutions...', fix: 'Our tools help teams get work done.' },
+        { ai: 'It is important to note that effective communication is pivotal...', fix: 'Good communication matters.' },
+        { ai: 'In todays rapidly evolving digital landscape...', fix: 'Things are changing fast.' },
+        { ai: 'Moreover, fostering a holistic approach to transformative innovation...', fix: 'A broad approach works best.' },
+      ];
+
+      let phraseIndex = 0;
+      let charIndex = 0;
+      let isDeleting = false;
+      let currentText = '';
+      const el = document.getElementById('typewriter-text');
+      const typeSpeed = 40;
+      const deleteSpeed = 20;
+      const pauseEnd = 2000;
+      const pauseDelete = 800;
+
+      function type() {
+        const target = isDeleting
+          ? phrases[phraseIndex].fix
+          : phrases[phraseIndex].ai;
+
+        if (!isDeleting) {
+          currentText = target.slice(0, charIndex + 1);
+          charIndex++;
+        } else {
+          currentText = target.slice(0, charIndex - 1);
+          charIndex--;
+        }
+
+        const totalLen = target.length;
+
+        if (!isDeleting && charIndex < totalLen) {
+          el.textContent = currentText;
+          setTimeout(type, typeSpeed + Math.random() * 30);
+        } else if (!isDeleting && charIndex >= totalLen) {
+          el.textContent = currentText;
+          setTimeout(() => {
+            isDeleting = true;
+            setTimeout(type, typeSpeed);
+          }, pauseEnd);
+        } else if (isDeleting && charIndex > 0) {
+          el.textContent = currentText;
+          setTimeout(type, deleteSpeed + Math.random() * 20);
+        } else if (isDeleting && charIndex <= 0) {
+          el.innerHTML = '<span class="ai-text">' + phrases[phraseIndex].ai + '</span>';
+          setTimeout(() => {
+            el.innerHTML = '<span class="fixed-text">' + phrases[phraseIndex].fix + '</span>';
+          }, 400);
+          setTimeout(() => {
+            isDeleting = false;
+            charIndex = 0;
+            phraseIndex = (phraseIndex + 1) % phrases.length;
+            currentText = '';
+            setTimeout(type, pauseDelete);
+          }, 1800);
+        }
+      }
+
+      el.innerHTML = '<span class="ai-text">' + phrases[0].ai + '</span>';
+      setTimeout(() => {
+        el.innerHTML = '<span class="fixed-text">' + phrases[0].fix + '</span>';
+        setTimeout(() => {
+          el.textContent = '';
+          charIndex = 0;
+          phraseIndex = 1;
+          isDeleting = false;
+          currentText = '';
+          type();
+        }, 2000);
+      }, 1500);
+    })();
+
+    // ============================================================
+    // COMPREHENSIVE HUMANIZATION ENGINE v2
+    // Built from Anti-AI Writing Research patterns
+    // ============================================================
+    (function() {
+      const input = document.getElementById('input-text');
+      const output = document.getElementById('output-text');
+      const humanizeBtn = document.getElementById('humanize-btn');
+      const copyBtn = document.getElementById('copy-btn');
+      const changeIndicator = document.getElementById('change-indicator');
+      const changeCountEl = document.getElementById('change-count');
+
+      // ------ PASS 1: Remove filler / hedge phrases (always safe) ------
+      const fillerPatterns = [
+        [/\bit is important to note that\b/gi, ''],
+        [/\bit's important to note that\b/gi, ''],
+        [/\bit is worth noting that\b/gi, ''],
+        [/\bit's worth noting that\b/gi, ''],
+        [/\bone thing to keep in mind( is)?\b/gi, ''],
+        [/\bat its core[,.]?\s*/gi, ''],
+        [/\bat the heart of\b/gi, 'in'],
+        [/\bin essence[,.]?\s*/gi, ''],
+        [/\bput simply[,.]?\s*/gi, ''],
+        [/\bsimply put[,.]?\s*/gi, ''],
+        [/\bthe key takeaway is that\b/gi, 'The main point: '],
+        [/\bthe key takeaway (here )?is\b/gi, 'The main point: '],
+        [/\bhere's the thing[.?!]?\s*/gi, ''],
+        [/\bhere's why[.?!]?\s*/gi, ''],
+        [/\bhere's what you need to know[.?!]?\s*/gi, ''],
+        [/\bhere's what (you need|we need) to know\b/gi, 'What matters: '],
+        [/\blet's dive in[.?!]?\s*/gi, ''],
+        [/\blet's explore[.?!]?\s*/gi, ''],
+        [/\blet's take a closer look[.?!]?\s*/gi, ''],
+        [/\blet's break (it |this )?down[.?!]?\s*/gi, ''],
+        [/\bin conclusion[,.]?\s*/gi, 'To wrap up: '],
+        [/\bto sum up[,.]?\s*/gi, 'So\u2014'],
+        [/\bthe bottom line is that\b/gi, 'The main thing: '],
+        [/\bthe bottom line (here )?is\b/gi, 'The main thing: '],
+        [/\blet that sink in[.?!]?\s*/gi, ''],
+        [/\bread that again[.?!]?\s*/gi, ''],
+        [/\bthis changes everything[.?!]?\s*/gi, 'This is a big shift.'],
+        [/\bmost people (don't|do not) realize (this|that)\b/gi, 'Not many people see this'],
+        [/\bfew people talk about this\b/gi, "I don't hear this discussed much"],
+        [/\bthe reality is that\b/gi, 'Honestly, '],
+        [/\bthe reality is\b(?!\s+that)/gi, 'Honestly, '],
+        [/\bthe truth is (that|:)\b/gi, 'Honestly\u2014'],
+        [/\bbut here's the (catch|thing)\b/gi, "But there's a catch"],
+        [/\bwhat happens next will (surprise|shock) you\b/gi, "Here's what happened next"],
+        [/\bthe answer might shock you\b/gi, "Here's the answer"],
+        [/\bstick around until the end\b/gi, "I'll show the result at the end"],
+        [/\bthere's one problem\b/gi, 'One issue'],
+        [/\bmake sure you watch until the end\b/gi, "I'll show the result at the end"],
+        [/\beverything changed overnight\b/gi, 'Over a few months, things improved'],
+        [/\bi hope this (message )?finds you well[.!]?\s*/gi, 'Hi.\n\n'],
+        [/\bi hope you[\u2019']re doing well[.!]?\s*/gi, 'Hi.\n\n'],
+        [/\bi trust you[\u2019']re doing well[.!]?\s*/gi, 'Hi.\n\n'],
+        [/\bplease don[\u2019']t hesitate to reach out\b/gi, 'Feel free to get in touch'],
+        [/\bplease do not hesitate to reach out\b/gi, 'Feel free to get in touch'],
+        [/\blooking forward to hearing from you\b/gi, 'Hope to hear from you'],
+        [/\bthank you for your time and consideration\b/gi, 'Thanks for reading'],
+        [/\bi wanted to reach out regarding\b/gi, "I'm reaching out about"],
+        [/\bi am writing to inquire about\b/gi, "I'm writing to ask about"],
+        [/\bi would appreciate the opportunity\b/gi, "I'd love the chance"],
+        [/\bwith that (being )?said\b[,.]?\s*/gi, 'Still, '],
+        [/\bwith that in mind\b[,.]?\s*/gi, 'Keeping that in mind, '],
+        [/\bat the same time\b[,.]?\s*/gi, 'Also, '],
+        [/\bin many ways\b[,.]?\s*/gi, ''],
+        [/\bmore importantly\b[,.]?\s*/gi, 'More to the point, '],
+        [/\bin practice\b[,.]?\s*/gi, 'In reality, '],
+        [/\bin reality\b[,.]?\s*/gi, 'Actually, '],
+        [/\blooking ahead\b[,.]?\s*/gi, 'Going forward, '],
+        [/\bas we look to the future\b/gi, 'Going forward, '],
+        [/\bas (we move|things move) forward\b/gi, 'Going forward, '],
+      ];
+
+      // ------ PASS 2: Multi-word phrases (MUST run before single-word) ------
+      const phrasePatterns = [
+        // "plays a pivotal role in" type
+        [/\bplays? a (pivotal|crucial|vital|significant|important) role in\b/gi, 'is key to'],
+        [/\bplays? a (pivotal|crucial|vital|significant|important) role\b/gi, 'matters a lot'],
+        [/\bplays? a key role in\b/gi, 'is key to'],
+        [/\bplays? a key role\b/gi, 'matters a lot'],
+        // "significantly enhance/improve" type — before "significantly" gets replaced
+        [/\bsignificantly (enhance|improve|impact|boost)\b/gi, 'really $1'],
+        [/\bcan significantly\b/gi, 'can really'],
+        [/\bhas significantly (improved|changed|grown|increased)\b/gi, 'has $1 a lot'],
+        [/\bhas greatly (improved|changed|grown|increased)\b/gi, 'has $1 a lot'],
+        // Business jargon phrases
+        [/\bunlock the potential of\b/gi, 'get more from'],
+        [/\bunlock the full potential\b/gi, 'get the most from'],
+        [/\bdrive meaningful results\b/gi, 'get real results'],
+        [/\bdrive (results|growth|change|innovation|value)\b/gi, 'get $1'],
+        [/\bachieve sustainable growth\b/gi, 'grow steadily'],
+        [/\bgain a competitive (advantage|edge)\b/gi, 'stay ahead'],
+        [/\bdeliver exceptional (value|results|service|experience)\b/gi, 'do great work'],
+        [/\bposition (yourself|ourselves|themselves) for success\b/gi, 'set up to win'],
+        [/\ba competitive advantage\b/gi, 'an edge'],
+        [/\bbest practices\b/gi, 'what works'],
+        [/\bbest-in-class\b/gi, 'top'],
+        [/\bstate-of-the-art\b/gi, 'modern'],
+        [/\bnext-generation\b/gi, 'new'],
+        [/\bworld-class\b/gi, 'excellent'],
+        [/\bindustry-leading\b/gi, 'top'],
+        [/\bthought leadership\b/gi, 'ideas'],
+        [/\bstakeholders\b/gi, 'people involved'],
+        [/\bsynergy(ies)?\b/gi, 'teamwork'],
+        [/\bvalue proposition\b/gi, 'what you offer'],
+        [/\bkey performance indicators\b/gi, 'metrics'],
+        [/\breturn on investment\b/gi, 'payoff'],
+        [/\bROI\b/g, 'payoff'],
+        [/\bcall to action\b/gi, 'next step'],
+        [/\bcontent is king\b/gi, 'good content wins'],
+        // Context/time phrases
+        [/\bin today's rapidly evolving (digital )?landscape[,.]?\s*/gi, 'Right now, '],
+        [/\bin today's fast-paced (digital )?world[,.]?\s*/gi, 'Right now, '],
+        [/\bin a world where\b/gi, 'With'],
+        [/\bin an (increasingly|ever-changing) (\w+) (world|landscape|environment)\b/gi, 'these days'],
+        [/\bthe (digital|modern|business) (landscape|era|age)\b/gi, 'right now'],
+        [/\bnow more than ever\b/gi, 'right now'],
+        // Sentence starters
+        [/\bit[\u2019']s no secret that\b/gi, 'Everyone knows '],
+        [/\bthere[\u2019']s no denying that\b/gi, 'Clearly, '],
+        [/\bwe[\u2019']re living in an (era|age|time) of\b/gi, "We're in a time of"],
+        [/\bas (\w+) continues to evolve\b/gi, 'As $1 keeps changing'],
+        [/\bthe future of (\w+) is\b/gi, 'Where $1 is headed:'],
+        [/\bone of the biggest challenges (facing|is|we face|teams face)\b/gi, 'Most teams struggle with'],
+        [/\bby leveraging ([^.]+),?\s*(organizations|teams|businesses|companies) can ([^.]+)/gi,
+          function(m, g1, g2, g3) {
+            return g2.charAt(0).toUpperCase() + g2.slice(1) + ' can ' + g3.trim() + ' by using ' + g1.trim();
+          }
+        ],
+        [/\bgain (valuable|deep|important) insights (into)?\b/gi, 'learn about'],
+        [/\bstreamline (your|our|their) workflow(s)?\b/gi, 'work faster'],
+        [/\bstay ahead of the curve\b/gi, 'stay ahead'],
+        [/\ba deep dive (into)?\b/gi, 'a close look at'],
+        [/\btake (your|our) (\w+) to the next level\b/gi, 'improve your $2'],
+        // "not only...but also" — just simplify
+        [/\bnot only (does|is|can|will|are)\b/gi, '$1'],
+        [/\bbut also\b/gi, 'and also'],
+        // "when it comes to" — simple swap
+        [/\bwhen it comes to\b/gi, 'for'],
+      ];
+
+      // ------ PASS 3: Replace formal transitions ------
+      const transitionPatterns = [
+        [/\bmoreover[,.]?\s*/gi, 'Also, '],
+        [/\bfurthermore[,.]?\s*/gi, 'Plus, '],
+        [/\badditionally[,.]?\s*/gi, 'Also, '],
+        [/\bnevertheless[,.]?\s*/gi, 'Still, '],
+        [/\bconsequently[,.]?\s*/gi, 'So, '],
+        [/\btherefore[,.]?\s*/gi, 'So, '],
+        [/\bthus[,.]?\s*/gi, 'So, '],
+        [/\bmeanwhile[,.]?\s*/gi, 'At the same time, '],
+        [/\bin contrast[,.]?\s*/gi, 'But '],
+        [/\bon the other hand[,.]?\s*/gi, 'Then again, '],
+        [/\bin addition[,.]?\s*/gi, 'Also, '],
+        [/\bas a result[,.]?\s*/gi, 'Because of that, '],
+        [/\bhowever[,.]?\s*/gi, 'But '],
+        [/\bhence[,.]?\s*/gi, 'So, '],
+        [/\bnonetheless[,.]?\s*/gi, 'Still, '],
+        [/\bnotwithstanding[,.]?\s*/gi, 'Even so, '],
+        [/\bsubsequently[,.]?\s*/gi, 'Then, '],
+        [/\baccordingly[,.]?\s*/gi, 'Because of that, '],
+      ];
+
+      // ------ PASS 4: Single-word replacements (runs LAST among patterns) ------
+      const wordPatterns = [
+        // IMPORTANT: "significantly" and "significant" are handled in phrase pass
+        // Here we only catch remaining standalone uses
+        [/\bsignificantly\b/gi, 'really'],
+        [/\bsignificant\b/gi, 'notable'],
+        [/\bleveraging\b/gi, 'using'],
+        [/\bleverage\b(?![dse])/gi, 'use'],
+        [/\boptimi[sz]ing\b/gi, 'improving'],
+        [/\boptimi[sz]e\b(?![ds])/gi, 'improve'],
+        [/\bstreamlining\b/gi, 'simplifying'],
+        [/\bstreamline\b(?![ds])/gi, 'simplify'],
+        [/\btransforming\b/gi, 'changing'],
+        [/\btransform\b(?!ed|ation|s)/gi, 'change'],
+        [/\btransformative\b/gi, 'powerful'],
+        [/\benhancing\b/gi, 'improving'],
+        [/\benhance\b(?![ds])/gi, 'improve'],
+        [/\bempowering\b/gi, 'helping'],
+        [/\bempower\b(?![eds])/gi, 'help'],
+        [/\bfacilitating\b/gi, 'enabling'],
+        [/\bfacilitate\b(?![ds])/gi, 'enable'],
+        [/\baligning\b/gi, 'matching'],
+        [/\balign\b(?!ed|s|ing|ment)/gi, 'match'],
+        [/\bscalable\b/gi, 'expandable'],
+        [/\brobust\b/gi, 'strong'],
+        [/\bdynamic\b/gi, 'active'],
+        [/\binnovative\b/gi, 'new'],
+        [/\bimpactful\b/gi, 'meaningful'],
+        [/\bseamless(?:ly)?\b/gi, 'smooth'],
+        [/\bholistic(?:ally)?\b/gi, 'broad'],
+        [/\bcomprehensive\b/gi, 'thorough'],
+        [/\bsustainable\b/gi, 'lasting'],
+        [/\bcutting-edge\b/gi, 'modern'],
+        [/\brevolutionary\b/gi, 'major'],
+        [/\bgame-changing\b/gi, 'important'],
+        [/\bforward-thinking\b/gi, 'ahead of the curve'],
+        [/\bactionable\b/gi, 'useful'],
+        [/\befficient(?:ly)?\b/gi, 'productive'],
+        [/\beffective(?:ly)?\b(?!\s*communication)/gi, 'useful'],
+        [/\bnuanced\b/gi, 'detailed'],
+        [/\bmultifaceted\b/gi, 'complex'],
+        [/\bintricate\b/gi, 'detailed'],
+        [/\bcompelling\b/gi, 'strong'],
+        [/\bcrucial(?:ly)?\b/gi, 'key'],
+        [/\bpivotal\b/gi, 'key'],
+        [/\bprofound(?:ly)?\b/gi, 'deep'],
+        [/\bsubstantial\b/gi, 'large'],
+        [/\bnoteworthy\b/gi, 'worth mentioning'],
+        [/\binsightful\b/gi, 'useful'],
+        [/\bsophisticated\b/gi, 'advanced'],
+        [/\bfostering\b/gi, 'building'],
+        [/\bfoster(?![eds])/gi, 'build'],
+        [/\bnavigating\b/gi, 'handling'],
+        [/\bnavigate\b(?![ds])/gi, 'handle'],
+        [/\bdelving\b/gi, 'digging into'],
+        [/\bdelve\b(?![ds])/gi, 'dig into'],
+        [/\bunlocking\b/gi, 'opening up'],
+        [/\bunlock\b(?![eds])/gi, 'open up'],
+        [/\bharnessing\b/gi, 'using'],
+        [/\bharness\b(?![eds])/gi, 'use'],
+        [/\belevating\b/gi, 'raising'],
+        [/\belevate\b(?![ds])/gi, 'raise'],
+        [/\breshaping\b/gi, 'changing'],
+        [/\breshape\b(?![ds])/gi, 'change'],
+        [/\bembracing\b/gi, 'adopting'],
+        [/\bembrace\b(?![ds])/gi, 'adopt'],
+        [/\breimagining\b/gi, 'rethinking'],
+        [/\breimagine\b(?![ds])/gi, 'rethink'],
+        [/\bcatalyzing\b/gi, 'sparking'],
+        [/\bcatalyze\b(?![ds])/gi, 'spark'],
+        [/\baccelerating\b/gi, 'speeding up'],
+        [/\baccelerate\b(?![ds])/gi, 'speed up'],
+        [/\bunderscore(?!s)\b/gi, 'stress'],
+        [/\bunderscoring\b/gi, 'stressing'],
+        [/\blandscape\b/gi, 'world'],
+        [/\becosystem\b/gi, 'system'],
+        [/\bframework\b/gi, 'setup'],
+        [/\bparadigm\b/gi, 'model'],
+        [/\bmethodology\b/gi, 'method'],
+        [/\bimplications\b/gi, 'effects'],
+        [/\bconsiderations\b/gi, 'things to weigh'],
+      ];
+
+      // ------ POST-PROCESSING: Clean up all artifacts ------
+      function postProcess(text) {
+        // 1. Fix double+ spaces
+        text = text.replace(/ {2,}/g, ' ');
+
+        // 2. Fix space before punctuation
+        text = text.replace(/ ([.,;:!?])/g, '$1');
+
+        // 3. Fix comma before period (comma splice from filler removal)
+        text = text.replace(/,\s*\./g, '.');
+
+        // 4. Fix period before comma
+        text = text.replace(/\.\s*,/g, ',');
+
+        // 5. Fix leading space on each line
+        text = text.replace(/^\s+/gm, function(m, offset) {
+          // Keep newlines but remove leading spaces
+          return m.replace(/[ \t]+/g, '');
+        });
+
+        // 6. Collapse multiple newlines
+        text = text.replace(/\n{3,}/g, '\n\n');
+
+        // 7. Capitalize first letter of the entire text
+        text = text.replace(/^([a-z])/, function(m, l) { return l.toUpperCase(); });
+
+        // 8. Capitalize after sentence-ending punctuation + space/newline
+        text = text.replace(/([.!?])\s+([a-z])/g, function(m, punct, letter) {
+          return punct + ' ' + letter.toUpperCase();
+        });
+
+        // 9. Capitalize after newline (new paragraph)
+        text = text.replace(/\n\s*([a-z])/g, function(m, letter) {
+          return '\n' + letter.toUpperCase();
+        });
+
+        // 10. Fix "a [uppercase]" → "a [lowercase]" for common short words that shouldn't be capitalized mid-sentence
+        // Only apply if NOT after a period
+        text = text.replace(/(?<![.!?])\ba (The|An|But|So|Also|Plus|Still|Because|However|Moreover|Furthermore|Meanwhile|Consequently|Therefore|Thus|Hence)\b/g,
+          function(m, word) {
+            return 'a ' + word.toLowerCase();
+          }
+        );
+
+        // 11. Fix "A a" or "A an" artifacts
+        text = text.replace(/\bA a\b/g, 'A');
+        text = text.replace(/\bA an\b/g, 'An');
+
+        // 12. Remove trailing whitespace
+        text = text.replace(/[ \t]+$/gm, '');
+
+        // 13. Final trim
+        return text.trim();
+      }
+
+      // ------ Em-dash overdose fix ------
+      function fixEmDashes(text) {
+        var sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+        return sentences.map(function(s) {
+          var count = 0;
+          return s.replace(/\u2014/g, function() {
+            count++;
+            return count > 1 ? ',' : '\u2014';
+          });
+        }).join('');
+      }
+
+      // ------ MAIN HUMANIZE FUNCTION ------
+      function processText(text) {
+        if (!text.trim()) return { text: '', changed: false, count: 0 };
+
+        var original = text;
+        var result = text;
+        var totalChanges = 0;
+
+        function applyPass(patterns) {
+          patterns.forEach(function(pair) {
+            var before = result;
+            var replacement = typeof pair[1] === 'function' ? pair[1] : pair[1];
+            result = result.replace(pair[0], replacement);
+            if (before !== result) {
+              var matches = before.match(pair[0]);
+              if (matches) totalChanges += matches.length;
+            }
+          });
+        }
+
+        // ORDER MATTERS: fillers → phrases → transitions → single words → cleanup
+        applyPass(fillerPatterns);
+        applyPass(phrasePatterns);
+        applyPass(transitionPatterns);
+        applyPass(wordPatterns);
+
+        // Post-processing
+        result = fixEmDashes(result);
+        result = postProcess(result);
+
+        return {
+          text: result,
+          changed: (result !== original),
+          count: totalChanges
+        };
+      }
+
+      // ------ BUTTON CLICK HANDLER ------
+      humanizeBtn.addEventListener('click', function() {
+        var text = input.value.trim();
+
+        if (!text) {
+          output.textContent = 'Paste some text first, then click Humanize.';
+          return;
+        }
+
+        humanizeBtn.classList.add('loading');
+        output.textContent = 'Analyzing and humanizing...';
+        changeIndicator.classList.remove('visible');
+
+        setTimeout(function() {
+          var result = processText(text);
+
+          if (result.text.trim()) {
+            output.textContent = result.text;
+            changeCountEl.textContent = result.count || 1;
+            changeIndicator.classList.add('visible');
+          } else {
+            output.textContent = 'Your text already sounds natural. No changes needed.';
+            changeIndicator.classList.remove('visible');
+          }
+
+          humanizeBtn.classList.remove('loading');
+        }, 500);
+      });
+
+      // ------ COPY BUTTON HANDLER ------
+      copyBtn.addEventListener('click', function() {
+        var text = output.textContent;
+        if (!text || text.indexOf('Click "Humanize"') !== -1 || text.indexOf('Analyzing') !== -1 || text.indexOf('Paste some text') !== -1) {
+          return;
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function() {
+            copyBtn.textContent = 'Copied!';
+            copyBtn.classList.add('copied');
+            setTimeout(function() {
+              copyBtn.textContent = 'Copy';
+              copyBtn.classList.remove('copied');
+            }, 2000);
+          });
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          copyBtn.textContent = 'Copied!';
+          copyBtn.classList.add('copied');
+          setTimeout(function() {
+            copyBtn.textContent = 'Copy';
+            copyBtn.classList.remove('copied');
+          }, 2000);
+        }
+      });
+
+      // Ctrl+Enter shortcut
+      input.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          humanizeBtn.click();
+        }
+      });
+    })();
+
+    // Animated Counters
+    (function() {
+      const counters = document.querySelectorAll('.counter');
+
+      function animateCounters() {
+        counters.forEach(counter => {
+          const target = parseInt(counter.getAttribute('data-target'));
+          const duration = 2000;
+          const start = performance.now();
+
+          function update(now) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = Math.floor(eased * target);
+            counter.textContent = current.toLocaleString();
+
+            if (progress < 1) {
+              requestAnimationFrame(update);
+            } else {
+              counter.textContent = target.toLocaleString();
+            }
+          }
+
+          requestAnimationFrame(update);
+        });
+      }
+
+      const statsSection = document.getElementById('results');
+      let countersAnimated = false;
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && !countersAnimated) {
+            countersAnimated = true;
+            animateCounters();
+          }
+        });
+      }, { threshold: 0.3 });
+
+      observer.observe(statsSection);
+    })();
+
+    // Scroll fade-in
+    (function() {
+      const fadeElements = document.querySelectorAll('.fade-in');
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+      fadeElements.forEach(el => observer.observe(el));
+    })();
+
+    // FAQ Accordion
+    (function() {
+      const items = document.querySelectorAll('.faq-item');
+
+      items.forEach(item => {
+        const question = item.querySelector('.faq-question');
+        question.addEventListener('click', () => {
+          const isOpen = item.classList.contains('open');
+
+          items.forEach(other => other.classList.remove('open'));
+
+          if (!isOpen) {
+            item.classList.add('open');
+          }
+        });
+      });
+    })();
+
+    // Pricing Toggle
+    (function() {
+      const toggle = document.getElementById('pricing-toggle');
+      const labels = toggle.parentElement.querySelectorAll('.toggle-label');
+      const prices = document.querySelectorAll('.plan-price');
+      const periods = document.querySelectorAll('.plan-period');
+      const yearlyPrices = ['190', '490'];
+      const monthlyPrices = ['19', '49'];
+
+      toggle.addEventListener('click', function() {
+        const isYearly = this.classList.toggle('active');
+
+        labels.forEach(label => {
+          const period = label.dataset.period;
+          if ((isYearly && period === 'yearly') || (!isYearly && period === 'monthly')) {
+            label.classList.add('active');
+          } else {
+            label.classList.remove('active');
+          }
+        });
+
+        prices.forEach((price, i) => {
+          const val = isYearly ? yearlyPrices[i] : monthlyPrices[i];
+          price.textContent = '$' + val;
+        });
+
+        periods.forEach(period => {
+          period.textContent = isYearly ? '/year' : '/month';
+        });
+      });
+    })();
+  </script>
+
+</body>
+</html>

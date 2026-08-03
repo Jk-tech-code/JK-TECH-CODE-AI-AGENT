@@ -1,0 +1,11 @@
+{
+  "name": "web-search-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --outfile dist/index.js --target bun --minify"
+  },
+  "dependencies": {}
+}

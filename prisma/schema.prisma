@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  posts         Post[]
+  sessions      Session[]
+  documents     Document[]
+  agents        Agent[]
+  conversations Conversation[]
+  preferences   UserPreference[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model UserPreference {
+  id        String   @id @default(uuid())
+  userId    String
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([authorId])
+  @@index([published])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  context   String?
+  metadata  String?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  userId    String?
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User?                  @relation(fields: [userId], references: [id])
+  messages ConversationMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+model ConversationMessage {
+  id             String       @id @default(uuid())
+  conversationId String
+  role           String
+  content        String
+  metadata       String?
+  tokenCount     Int?
+  createdAt      DateTime     @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([conversationId, createdAt])
+}
+
+model Agent {
+  id          String   @id @default(uuid())
+  userId      String?
+  agentId     String
+  name        String
+  description String?
+  config      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User?       @relation(fields: [userId], references: [id])
+  tasks AgentTask[]
+
+  @@index([userId])
+  @@index([agentId])
+}
+
+model AgentTask {
+  id           String    @id @default(uuid())
+  agentId      String
+  input        String
+  output       String?
+  confidence   Float?
+  modelUsed    String?
+  latencyMs    Int?
+  metadata     String?
+  parentTaskId String?
+  status       String    @default("pending")
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([agentId])
+  @@index([status])
+  @@index([parentTaskId])
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  userId     String?
+  title      String
+  content    String?
+  sourceType String
+  source     String?
+  fileType   String?
+  fileSize   Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user   User?           @relation(fields: [userId], references: [id])
+  chunks DocumentChunk[]
+
+  @@index([userId, createdAt])
+}
+
+model DocumentChunk {
+  id         String   @id @default(uuid())
+  documentId String
+  content    String
+  chunkIndex Int
+  embedding  String?
+  metadata   String?
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([documentId, chunkIndex])
+}
+
+model SearchCache {
+  id        String   @id @default(uuid())
+  query     String
+  results   String
+  engine    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([query])
+  @@index([engine, expiresAt])
+}
+
+model MemoryEntry {
+  id           String   @id @default(uuid())
+  type         String
+  content      String
+  tags         String
+  userId       String?
+  accessCount  Int      @default(0)
+  ttl          Int?
+  createdAt    DateTime @default(now())
+  lastAccessed DateTime @default(now())
+
+  @@index([userId, type])
+  @@index([type, tags])
+  @@index([lastAccessed])
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  sessionId String?
+  messageId String?
+  rating    Int?
+  comment   String?
+  category  String?
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([messageId])
+  @@index([category])
+}
+
+model ApiLog {
+  id         String   @id @default(uuid())
+  endpoint   String
+  method     String
+  statusCode Int
+  latencyMs  Int
+  userId     String?
+  modelUsed  String?
+  tokenCount Int?
+  createdAt  DateTime @default(now())
+
+  @@index([endpoint, createdAt])
+  @@index([userId])
+}
