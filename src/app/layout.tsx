@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -20,11 +21,12 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jktechcode.com";
 export const metadata: Metadata = {
   title: {
     template: "%s | JK-TECH-CODE",
-    default: "JK-TECH-CODE — Write Like You | AI Writing Humanizer",
+    default: "JK-TECH-CODE AI — Write Like You | AI Assistant & Humanizer",
   },
   description:
-    "JK-TECH-CODE scans your text for AI-generated patterns and shows you how to sound human again. Paste your draft, get instant humanized rewrites.",
+    "JK-TECH-CODE AI is a modern AI assistant that writes, codes, researches, and answers — with every response crafted to sound naturally human.",
   keywords: [
+    "AI assistant",
     "AI writing detector",
     "humanize AI text",
     "AI writing fixer",
@@ -32,6 +34,7 @@ export const metadata: Metadata = {
     "natural writing",
     "anti-AI writing",
     "writing tool",
+    "chat assistant",
     "JK-TECH-CODE",
   ],
   authors: [{ name: "JK-TECH-CODE" }],
@@ -47,9 +50,9 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "JK-TECH-CODE — Write Like You",
+    title: "JK-TECH-CODE AI — Write Like You",
     description:
-      "AI writing detection and humanization tool. Paste your draft and get instant feedback to sound more natural.",
+      "A modern AI assistant that writes, codes, researches, and answers — with every response crafted to sound naturally human.",
     type: "website",
     siteName: "JK-TECH-CODE",
     locale: "en_US",
@@ -64,9 +67,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "JK-TECH-CODE — Write Like You",
+    title: "JK-TECH-CODE AI — Write Like You",
     description:
-      "AI writing detection and humanization tool. Paste your draft and get instant feedback to sound more natural.",
+      "A modern AI assistant that writes, codes, researches, and answers — with every response crafted to sound naturally human.",
     images: ["/og-image.png"],
   },
   robots: {
@@ -99,7 +102,7 @@ const jsonLd = {
       url: siteUrl,
       logo: `${siteUrl}/icon-192.png`,
       description:
-        "AI writing detection and humanization platform. Make your AI-generated text sound genuinely human.",
+        "Modern AI assistant and humanization platform. Ask anything and get clear, naturally-written answers in real time.",
       foundingDate: "2025",
       contactPoint: {
         "@type": "ContactPoint",
@@ -113,7 +116,7 @@ const jsonLd = {
       url: siteUrl,
       name: "JK-TECH-CODE",
       description:
-        "AI writing detection and humanization tool. Paste your draft and get instant feedback to sound more natural.",
+        "Modern AI assistant that writes, codes, researches, and answers. Every response is crafted to sound naturally human.",
       publisher: { "@id": `${siteUrl}/#organization` },
       inLanguage: "en-US",
     },
@@ -121,9 +124,9 @@ const jsonLd = {
       "@type": "WebPage",
       "@id": `${siteUrl}/#webpage`,
       url: siteUrl,
-      name: "JK-TECH-CODE — Write Like You | AI Writing Humanizer",
+      name: "JK-TECH-CODE AI — Write Like You | AI Assistant & Humanizer",
       description:
-        "Scan your text for AI-generated patterns and learn how to sound human again.",
+        "Ask JK-TECH-CODE AI anything — build a website, write a proposal, generate code, or research a topic.",
       isPartOf: { "@id": `${siteUrl}/#website` },
     },
     {
@@ -132,10 +135,10 @@ const jsonLd = {
       mainEntity: [
         {
           "@type": "Question",
-          name: "How does JK-TECH-CODE detect AI-written text?",
+          name: "What is JK-TECH-CODE AI?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "JK-TECH-CODE analyzes your text for common AI writing patterns including overused buzzwords, stiff transitions, repetitive sentence structures, and unnatural phrasing. It provides a pattern score and actionable suggestions to make your writing sound more human.",
+            text: "JK-TECH-CODE AI is a modern AI assistant that writes, codes, researches, and answers questions. Every response is written to sound like a real person — no robotic phrasing, no AI buzzwords.",
           },
         },
         {
@@ -165,7 +168,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script
           type="application/ld+json"
@@ -175,8 +178,10 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${playfair.variable} antialiased`}
       >
-        {children}
-        <Toaster />
+        <ThemeProvider>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );
