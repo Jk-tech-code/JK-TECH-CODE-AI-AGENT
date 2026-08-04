@@ -241,24 +241,24 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[var(--background)] flex flex-col">
       {/* Header */}
-      <header className="h-14 border-b border-[var(--border-color)] flex items-center px-4 bg-[var(--surface)]">
+      <header className="h-14 border-b border-[var(--border-color)] flex items-center px-4 bg-[var(--surface)]/80 backdrop-blur-sm sticky top-0 z-30">
         <Link href="/" className="font-['Playfair_Display'] font-bold text-base text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors mr-8">
           JK-TECH-CODE<span className="text-[var(--accent)]">.</span>
         </Link>
-        <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-0.5 border border-[var(--border-color)]">
+        <div className="flex items-center gap-1 bg-[var(--background)] rounded-xl p-1 border border-[var(--border-color)]">
           <button type="button" onClick={() => setTab('conversations')}
-            className={`px-3 py-1.5 text-xs rounded-md transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 cursor-pointer ${
               tab === 'conversations'
-                ? 'bg-[var(--accent)] text-white'
+                ? 'bg-[var(--accent)] text-white shadow-soft'
                 : 'text-[var(--text-muted-70)] hover:text-[var(--text-primary)] bg-transparent border-none'
             }`}>
             <MessageSquare className="h-3.5 w-3.5 inline mr-1.5" />
             Conversations
           </button>
           <button type="button" onClick={() => setTab('documents')}
-            className={`px-3 py-1.5 text-xs rounded-md transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-200 cursor-pointer ${
               tab === 'documents'
-                ? 'bg-[var(--accent)] text-white'
+                ? 'bg-[var(--accent)] text-white shadow-soft'
                 : 'text-[var(--text-muted-70)] hover:text-[var(--text-primary)] bg-transparent border-none'
             }`}>
             <FileText className="h-3.5 w-3.5 inline mr-1.5" />
@@ -283,7 +283,7 @@ export default function DashboardPage() {
           <div className="p-3 border-b border-[var(--border-color)]">
             {tab === 'conversations' ? (
               <Button onClick={newConversation} size="sm"
-                className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold">
+                className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold rounded-xl">
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
                 New Conversation
               </Button>
@@ -291,7 +291,7 @@ export default function DashboardPage() {
               <div>
                 <input ref={fileInputRef} type="file" onChange={uploadFile} className="hidden" accept=".txt,.csv,.json,.pdf,.doc,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.webp,.svg" />
                 <Button onClick={() => fileInputRef.current?.click()} disabled={uploading} size="sm"
-                  className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold">
+                  className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold rounded-xl">
                   {uploading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1.5" />}
                   {uploading ? 'Uploading...' : 'Upload Document'}
                 </Button>
@@ -302,8 +302,10 @@ export default function DashboardPage() {
           <div className="flex-1 overflow-y-auto">
             {tab === 'conversations' ? (
               convLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-5 w-5 text-[var(--text-muted-30)] animate-spin" />
+                <div className="p-3 space-y-2" aria-label="Loading conversations">
+                  {[0, 1, 2, 3, 4].map(i => (
+                    <div key={i} className="skeleton-shimmer h-14 rounded-xl" />
+                  ))}
                 </div>
               ) : conversations.length === 0 ? (
                 <div className="text-center py-12 px-4">
@@ -312,11 +314,13 @@ export default function DashboardPage() {
                   <p className="text-xs text-[var(--text-muted-30)] mt-1">Start one from the AI Agent section.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-[var(--border-color)]">
+                <div className="p-2 space-y-1">
                   {conversations.map(conv => (
                     <button key={conv.id} type="button" onClick={() => openConversation(conv.id)}
-                      className={`w-full text-left px-4 py-3 hover:bg-[var(--surface-hover)] transition-colors cursor-pointer border-none ${
-                        selectedConv?.id === conv.id ? 'bg-[var(--surface-hover)]' : 'bg-transparent'
+                      className={`group w-full text-left px-3 py-2.5 rounded-xl hover:bg-[var(--surface-hover)] transition-all duration-200 cursor-pointer border ${
+                        selectedConv?.id === conv.id
+                          ? 'bg-[var(--surface-hover)] border-[var(--accent)]/30'
+                          : 'bg-transparent border-transparent'
                       }`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
@@ -328,7 +332,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <span className="text-[10px] text-[var(--text-muted-30)]">{formatDate(conv.updatedAt)}</span>
                           <button type="button" onClick={(e) => deleteConversation(conv.id, e)}
-                            className="text-[var(--text-muted-30)] hover:text-red-400 transition-colors bg-transparent border-none cursor-pointer p-0"
+                            className="text-[var(--text-muted-30)] hover:text-red-400 transition-colors bg-transparent border-none cursor-pointer p-0 opacity-0 group-hover:opacity-100"
                             aria-label="Delete conversation">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -340,8 +344,10 @@ export default function DashboardPage() {
               )
             ) : (
               docLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-5 w-5 text-[var(--text-muted-30)] animate-spin" />
+                <div className="p-3 space-y-2" aria-label="Loading documents">
+                  {[0, 1, 2, 3, 4].map(i => (
+                    <div key={i} className="skeleton-shimmer h-14 rounded-xl" />
+                  ))}
                 </div>
               ) : documents.length === 0 ? (
                 <div className="text-center py-12 px-4">
@@ -350,11 +356,13 @@ export default function DashboardPage() {
                   <p className="text-xs text-[var(--text-muted-30)] mt-1">Upload a file to get started.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-[var(--border-color)]">
+                <div className="p-2 space-y-1">
                   {documents.map(doc => (
                     <button key={doc.id} type="button" onClick={() => openDocument(doc.id)}
-                      className={`w-full text-left px-4 py-3 hover:bg-[var(--surface-hover)] transition-colors cursor-pointer border-none ${
-                        docDetail?.id === doc.id ? 'bg-[var(--surface-hover)]' : 'bg-transparent'
+                      className={`group w-full text-left px-3 py-2.5 rounded-xl hover:bg-[var(--surface-hover)] transition-all duration-200 cursor-pointer border ${
+                        docDetail?.id === doc.id
+                          ? 'bg-[var(--surface-hover)] border-[var(--accent)]/30'
+                          : 'bg-transparent border-transparent'
                       }`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -371,7 +379,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <span className="text-[10px] text-[var(--text-muted-30)]">{formatDate(doc.createdAt)}</span>
                           <button type="button" onClick={(e) => deleteDocument(doc.id, e)}
-                            className="text-[var(--text-muted-30)] hover:text-red-400 transition-colors bg-transparent border-none cursor-pointer p-0"
+                            className="text-[var(--text-muted-30)] hover:text-red-400 transition-colors bg-transparent border-none cursor-pointer p-0 opacity-0 group-hover:opacity-100"
                             aria-label="Delete document">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -389,8 +397,8 @@ export default function DashboardPage() {
         <main className="flex-1 overflow-y-auto bg-[var(--background)]">
           {tab === 'conversations' ? (
             selectedConv ? (
-              <div className="max-w-3xl mx-auto py-6 px-6">
-                <div className="flex items-center justify-between mb-6">
+              <div className="max-w-3xl mx-auto py-8 px-6">
+                <div className="flex items-center justify-between mb-8">
                   <h2 className="font-['Playfair_Display'] text-xl text-[var(--text-primary)] truncate">
                     {selectedConv.title}
                   </h2>
@@ -400,10 +408,10 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="space-y-4">
-                  {selectedConv.messages.map(msg => (
-                    <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                  {selectedConv.messages.map((msg, i) => (
+                    <div key={msg.id} className={`flex gap-3 animate-fade-in-up ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`} style={{ animationDelay: `${i * 30}ms` }}>
                       <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${
-                        msg.role === 'user' ? 'bg-[var(--surface-hover)]' : 'bg-[var(--accent)]/15'
+                        msg.role === 'user' ? 'bg-[var(--surface-hover)]' : 'bg-[var(--accent)]/15 ring-1 ring-[var(--accent)]/20'
                       }`}>
                         {msg.role === 'user'
                           ? <User className="h-3.5 w-3.5 text-[var(--text-muted-70)]" />
@@ -411,7 +419,7 @@ export default function DashboardPage() {
                         }
                       </div>
                       <div className={`max-w-[75%] min-w-0 ${msg.role === 'user' ? 'text-right' : ''}`}>
-                        <div className={`inline-block text-left rounded-xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                        <div className={`inline-block text-left rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words shadow-soft ${
                           msg.role === 'user'
                             ? 'bg-[var(--accent)] text-white rounded-tr-md'
                             : 'bg-[var(--surface)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-tl-md'
@@ -437,8 +445,8 @@ export default function DashboardPage() {
             )
           ) : (
             docDetail ? (
-              <div className="max-w-3xl mx-auto py-6 px-6">
-                <div className="flex items-center justify-between mb-6">
+              <div className="max-w-3xl mx-auto py-8 px-6">
+                <div className="flex items-center justify-between mb-8">
                   <h2 className="font-['Playfair_Display'] text-xl text-[var(--text-primary)] truncate">
                     {docDetail.title}
                   </h2>
@@ -447,7 +455,7 @@ export default function DashboardPage() {
                   </span>
                 </div>
 
-                <div className="bg-[var(--surface)] border border-[var(--border-color)] rounded-lg p-5">
+                <div className="bg-[var(--surface)] border border-[var(--border-color)] rounded-2xl p-6 shadow-soft">
                   <pre className="text-sm text-[var(--text-primary)] whitespace-pre-wrap font-sans leading-relaxed">
                     {docDetail.content || '(Empty document)'}
                   </pre>

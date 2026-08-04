@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -31,6 +33,34 @@ function formatTime(ts: number) {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function CodeBlock({ children, className }: { children?: React.ReactNode; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const code = String(children || '').replace(/\n$/, '');
+  const lang = (className || '').replace(/^language-/, '') || 'code';
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(code).then(
+      () => { setCopied(true); setTimeout(() => setCopied(false), 2000); },
+      () => toast.error('Failed to copy.'),
+    );
+  }, [code]);
+
+  return (
+    <div className="code-block">
+      <div className="code-block__header">
+        <span className="code-block__lang">{lang}</span>
+        <button type="button" className="code-block__copy" onClick={handleCopy} aria-label={`Copy ${lang} code`}>
+          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre>
+        <code className={className}>{children}</code>
+      </pre>
+    </div>
+  );
+}
+
 function MessageBubble({
   message, onCopy, isStreaming,
 }: {
@@ -46,34 +76,61 @@ function MessageBubble({
   }, [message.content, onCopy]);
 
   return (
-    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} mb-6`}>
-      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1 ${
-        isUser ? 'bg-[var(--surface-hover)]' : 'bg-[var(--accent)]/15'
+    <motion.div
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} mb-6`}
+    >
+      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-1 shadow-soft ${
+        isUser ? 'bg-[var(--surface-hover)]' : 'bg-[var(--accent)]/15 ring-1 ring-[var(--accent)]/20'
       }`} aria-hidden="true">
         {isUser ? <User className="h-4 w-4 text-[var(--text-muted-70)]" /> : <Bot className="h-4 w-4 text-[var(--accent)]" />}
       </div>
-      <div className={`max-w-[80%] min-w-0 ${isUser ? 'text-right' : ''}`}>
-        <div className="flex items-center gap-2 mb-1">
+      <div className={`max-w-[85%] min-w-0 ${isUser ? 'text-right' : 'flex-1'}`}>
+        <div className={`flex items-center gap-2 mb-1.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
           <span className="text-xs font-medium text-[var(--text-muted-50)]">
             {isUser ? 'You' : 'JK-TECH-CODE AI Agent'}
           </span>
           {!isUser && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] uppercase tracking-wider font-medium">
+            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] uppercase tracking-wider font-medium">
+              <Sparkles className="h-2.5 w-2.5" />
               Humanized
             </span>
           )}
           <span className="text-[10px] text-[var(--text-muted-30)]">{formatTime(message.timestamp)}</span>
         </div>
-        <div className={`inline-block text-left rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
+        <div className={`inline-block text-left rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-soft ${
           isUser
             ? 'bg-[var(--accent)] text-white rounded-tr-md'
             : 'bg-[var(--surface)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-tl-md'
         }`}>
-          {message.content}
-          {isStreaming && <span className="inline-block w-1.5 h-4 bg-[var(--accent)] ml-0.5 animate-pulse" />}
+          {isUser ? (
+            <span className="whitespace-pre-wrap break-words">{message.content}</span>
+          ) : message.content ? (
+            <div className="markdown-body text-left">
+              <ReactMarkdown
+                components={{
+                  code({ className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    if (match) {
+                      return <CodeBlock className={className}>{children}</CodeBlock>;
+                    }
+                    return <code className={className} {...props}>{children}</code>;
+                  },
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          ) : isStreaming ? (
+            <span className="typing-dots" aria-label="Assistant is typing">
+              <span /><span /><span />
+            </span>
+          ) : null}
         </div>
-        {!isUser && !isStreaming && (
-          <div className="mt-1.5">
+        {!isUser && !isStreaming && message.content && (
+          <div className={`mt-1.5 ${isUser ? 'text-right' : 'text-left'}`}>
             <button type="button" onClick={handleCopy}
               className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-[var(--text-muted-30)] hover:text-[var(--accent)] transition-colors bg-transparent border-none cursor-pointer p-0"
               aria-label="Copy response">
@@ -83,7 +140,27 @@ function MessageBubble({
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
+  );
+}
+
+function AutosizeTextarea({
+  value, onChange, onKeyDown, textareaRef, ...props
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+} & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange' | 'onKeyDown'>) {
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [value, textareaRef]);
+
+  return (
+    <Textarea ref={textareaRef} value={value} onChange={onChange} onKeyDown={onKeyDown} {...props} />
   );
 }
 
@@ -215,10 +292,10 @@ export default function ChatAgent() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-[600px] lg:h-[700px] bg-[var(--surface)] border border-[var(--border-color)] rounded-xl overflow-hidden">
+    <div className="flex flex-col h-[600px] lg:h-[700px] bg-[var(--surface)] border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-soft">
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border-color)] bg-[var(--surface)]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[var(--accent)]/15 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-[var(--accent)]/15 ring-1 ring-[var(--accent)]/20 flex items-center justify-center">
             <Sparkles className="h-4 w-4 text-[var(--accent)]" />
           </div>
           <div>
@@ -246,52 +323,74 @@ export default function ChatAgent() {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4" role="log" aria-label="Chat messages" aria-live="polite">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5" role="log" aria-label="Chat messages" aria-live="polite">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div className="w-14 h-14 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center mb-5">
-              <Bot className="h-7 w-7 text-[var(--accent)]" />
+            <div className="w-16 h-16 rounded-2xl bg-[var(--accent)]/10 ring-1 ring-[var(--accent)]/20 flex items-center justify-center mb-6 animate-fade-in-up">
+              <Bot className="h-8 w-8 text-[var(--accent)]" />
             </div>
-            <h4 className="font-['Playfair_Display'] text-xl text-[var(--text-primary)] mb-2">Ask me anything</h4>
+            <h4 className="font-['Playfair_Display'] text-2xl text-[var(--text-primary)] mb-2">Ask me anything</h4>
             <p className="text-sm text-[var(--text-muted-70)] max-w-md mb-8 leading-relaxed">
               Streaming responses in real time. No AI-speak, no buzzwords.
             </p>
             <div className="flex flex-wrap justify-center gap-2 max-w-lg">
-              {SUGGESTIONS.map(s => (
-                <button key={s} type="button" onClick={() => handleSuggestion(s)}
-                  className="text-xs text-[var(--text-muted-70)] border border-[var(--border-color)] rounded-full px-3.5 py-2 hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors bg-transparent cursor-pointer">
+              {SUGGESTIONS.map((s, i) => (
+                <motion.button
+                  key={s} type="button" onClick={() => handleSuggestion(s)}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.06, duration: 0.3 }}
+                  className="text-xs text-[var(--text-muted-70)] border border-[var(--border-color)] rounded-full px-3.5 py-2 hover:border-[var(--accent)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/5 transition-all duration-200 bg-transparent cursor-pointer">
                   {s}
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
         ) : (
           <div className="max-w-3xl mx-auto">
-            {messages.map(msg => (
-              <MessageBubble key={msg.id} message={msg} onCopy={handleCopy}
-                isStreaming={msg.id === streamingId} />
-            ))}
+            <AnimatePresence initial={false}>
+              {messages.map(msg => (
+                <MessageBubble key={msg.id} message={msg} onCopy={handleCopy}
+                  isStreaming={msg.id === streamingId} />
+              ))}
+            </AnimatePresence>
+            {loading && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-3 pl-1"
+              >
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--accent)]/15 ring-1 ring-[var(--accent)]/20 flex items-center justify-center">
+                  <Bot className="h-4 w-4 text-[var(--accent)]" />
+                </div>
+                <span className="typing-dots" aria-label="Assistant is typing">
+                  <span /><span /><span />
+                </span>
+              </motion.div>
+            )}
           </div>
         )}
       </div>
 
-      <div className="border-t border-[var(--border-color)] px-5 py-3.5 bg-[var(--surface)]">
+      <div className="border-t border-[var(--border-color)] px-4 py-3.5 bg-[var(--surface)]">
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-end gap-3">
-            <Textarea ref={textareaRef} value={input} onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
+          <div className="flex items-end gap-2 rounded-2xl border border-[var(--border-color)] bg-[var(--background)] p-2 shadow-soft transition-colors focus-within:border-[var(--accent)]/50 focus-within:ring-1 focus-within:ring-[var(--accent)]/30">
+            <AutosizeTextarea
+              value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+              textareaRef={textareaRef}
               placeholder="Ask anything — streaming responses..."
-              className="flex-1 min-h-[44px] max-h-[120px] resize-none bg-[var(--background)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted-30)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] focus-visible:border-transparent"
+              className="flex-1 min-h-[40px] max-h-[160px] resize-none bg-transparent border-none shadow-none px-2 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted-30)] focus-visible:ring-0 focus-visible:border-none"
               rows={1} aria-label="Type your message" />
             {loading ? (
               <Button onClick={handleStop}
-                className="flex-shrink-0 h-11 w-11 rounded-xl bg-red-500 hover:bg-red-600 text-white p-0 flex items-center justify-center"
+                className="flex-shrink-0 h-10 w-10 rounded-xl bg-red-500 hover:bg-red-600 text-white p-0 flex items-center justify-center"
                 aria-label="Stop generating">
                 <StopCircle className="h-4 w-4" />
               </Button>
             ) : (
               <Button onClick={handleSend} disabled={!input.trim()}
-                className="flex-shrink-0 h-11 w-11 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white p-0 flex items-center justify-center"
+                className="flex-shrink-0 h-10 w-10 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white p-0 flex items-center justify-center disabled:opacity-40"
                 aria-label="Send message">
                 <Send className="h-4 w-4" />
               </Button>

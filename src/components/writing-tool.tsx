@@ -98,7 +98,7 @@ export default function WritingTool() {
   }, []);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 border border-[var(--border-color)] rounded-lg overflow-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-soft">
       {/* Input Panel */}
       <div className="bg-[var(--surface)] p-6 lg:p-8 flex flex-col">
         <div className="flex items-center justify-between mb-4">
@@ -107,7 +107,7 @@ export default function WritingTool() {
           </label>
           <Badge
             variant="outline"
-            className="text-[10px] px-2 py-0 border-[var(--border-color)] text-[var(--muted-label)]"
+            className="text-[10px] px-2 py-0.5 border-[var(--border-color)] text-[var(--muted-label)] rounded-full"
           >
             {input.length} chars
           </Badge>
@@ -123,8 +123,8 @@ export default function WritingTool() {
         />
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--border-color)]">
           <span className="text-xs text-[var(--text-muted-50)]">
-            <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-hover)] text-[10px] font-mono">Ctrl</kbd>{' '}
-            <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-hover)] text-[10px] font-mono">Enter</kbd>{' '}
+            <kbd className="px-1.5 py-0.5 rounded-md bg-[var(--surface-hover)] text-[10px] font-mono">Ctrl</kbd>{' '}
+            <kbd className="px-1.5 py-0.5 rounded-md bg-[var(--surface-hover)] text-[10px] font-mono">Enter</kbd>{' '}
             to submit
           </span>
           <div className="flex gap-2">
@@ -141,7 +141,7 @@ export default function WritingTool() {
             <Button
               onClick={humanize}
               disabled={loading || input.trim().length < 10}
-              className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold text-sm"
+              className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold text-sm shadow-soft"
               aria-label="Humanize your text"
             >
               {loading ? (
@@ -184,12 +184,15 @@ export default function WritingTool() {
 
         <div className="flex-1 min-h-[240px] lg:min-h-[300px]">
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3">
-              <div className="h-8 w-8 border-2 border-[var(--accent)]/30 border-t-[var(--accent)] rounded-full animate-spin" />
-              <p className="text-sm text-[var(--text-muted-50)]">Analyzing patterns and rewriting...</p>
+            <div className="space-y-3" role="status" aria-label="Analyzing text">
+              <div className="skeleton-shimmer h-4 rounded-md w-11/12" />
+              <div className="skeleton-shimmer h-4 rounded-md w-full" />
+              <div className="skeleton-shimmer h-4 rounded-md w-4/5" />
+              <div className="skeleton-shimmer h-4 rounded-md w-2/3" />
+              <p className="text-sm text-[var(--text-muted-50)] pt-3">Analyzing patterns and rewriting...</p>
             </div>
           ) : result ? (
-            <div>
+            <div className="animate-fade-in-up">
               <p className="text-[0.95rem] leading-[1.8] text-[var(--text-primary)] whitespace-pre-wrap">
                 {result.humanized}
               </p>

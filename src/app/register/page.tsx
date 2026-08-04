@@ -64,15 +64,19 @@ export default function RegisterPage() {
   }, [name, email, password, confirmPassword, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen flex items-center justify-center bg-[var(--background)] px-4 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute -top-40 -right-40 h-[28rem] w-[28rem] rounded-full bg-[var(--accent)]/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -left-40 h-[24rem] w-[24rem] rounded-full bg-[var(--accent)]/5 blur-[100px]" />
+      </div>
+      <div className="w-full max-w-md relative">
         <div className="text-center mb-8">
           <Link href="/" className="font-['Playfair_Display'] font-bold text-2xl text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors">
             JK-TECH-CODE<span className="text-[var(--accent)]">.</span>
           </Link>
         </div>
 
-        <Card className="border-[var(--border-color)] bg-[var(--surface)]">
+        <Card className="border-[var(--border-color)] bg-[var(--surface)] backdrop-blur-sm">
           <CardHeader className="text-center">
             <div className="w-12 h-12 rounded-xl bg-[var(--accent)]/10 flex items-center justify-center mx-auto mb-3">
               <Sparkles className="h-6 w-6 text-[var(--accent)]" />

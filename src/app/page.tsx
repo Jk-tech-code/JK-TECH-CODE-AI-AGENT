@@ -148,7 +148,7 @@ function TypewriterDemo() {
   }, [prefersReduced]);
 
   return (
-    <div className="bg-[var(--surface)] border border-[var(--border-color)] p-8 min-h-[320px] flex flex-col justify-center rounded-lg">
+    <div className="bg-[var(--surface)] border border-[var(--border-color)] p-8 min-h-[320px] flex flex-col justify-center rounded-2xl shadow-soft">
       <span className="text-[10px] uppercase tracking-[0.15em] text-[var(--muted-label)] mb-4">
         Live Detection
       </span>
@@ -238,6 +238,14 @@ const NAV_LINKS = [
 export default function Home() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [yearly, setYearly] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const scrollTo = useCallback((href: string) => {
     setMobileOpen(false);
@@ -257,7 +265,7 @@ export default function Home() {
       </a>
 
       {/* ─── HEADER / NAV ─── */}
-      <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-[var(--background)]/95 backdrop-blur-sm border-b border-[var(--border-color)] flex items-center px-6">
+      <header className={`fixed top-0 left-0 right-0 z-50 h-16 bg-[var(--background)]/85 backdrop-blur-md border-b flex items-center px-6 transition-all duration-300 ${scrolled ? 'border-[var(--border-color)] shadow-lift' : 'border-transparent'}`}>
         <nav
           className="max-w-7xl w-full mx-auto flex items-center justify-between"
           aria-label="Main navigation"
@@ -279,7 +287,7 @@ export default function Home() {
             ))}
             <Button
               onClick={() => scrollTo('#canvas')}
-              className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold text-xs uppercase tracking-[0.08em] px-5 py-2 h-9"
+              className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-semibold text-xs uppercase tracking-[0.08em] px-5 py-2 h-9 rounded-lg"
             >
               Get Started
             </Button>
@@ -331,11 +339,16 @@ export default function Home() {
       <main id="main-content" className="flex-1">
 
         {/* HERO */}
-        <section id="hero" className="min-h-screen flex items-center pt-16">
-          <div className="max-w-7xl mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center py-20">
+        <section id="hero" className="relative min-h-screen flex items-center pt-16 overflow-hidden">
+          <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+            <div className="absolute -top-40 -right-40 h-[32rem] w-[32rem] rounded-full bg-[var(--accent)]/10 blur-[120px]" />
+            <div className="absolute -bottom-40 -left-40 h-[28rem] w-[28rem] rounded-full bg-[var(--accent)]/5 blur-[100px]" />
+          </div>
+          <div className="max-w-7xl mx-auto px-6 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center py-20 relative">
             <div>
               <FadeIn>
-                <span className="text-xs uppercase tracking-[0.2em] text-[var(--accent)] font-semibold block mb-6">
+                <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[var(--accent)] font-semibold block mb-6">
+                  <Sparkles className="h-3.5 w-3.5" />
                   AI Writing Detector &amp; Fixer
                 </span>
               </FadeIn>
@@ -773,9 +786,9 @@ export default function Home() {
             </FadeIn>
 
             <FadeIn delay={300}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1 max-w-4xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                 {/* Starter */}
-                <div className="p-8 lg:p-10 border border-[var(--border-color)] rounded-lg">
+                <div className="p-8 lg:p-10 border border-[var(--border-color)] rounded-2xl bg-[var(--surface)] shadow-soft transition-all duration-300 hover:shadow-lift hover:-translate-y-1 flex flex-col">
                   <h3 className="font-['Playfair_Display'] text-2xl mb-2">Starter</h3>
                   <div className="mb-1">
                     <span className="font-['Playfair_Display'] text-5xl text-[var(--accent)]">
@@ -786,25 +799,25 @@ export default function Home() {
                   <p className="text-sm text-[var(--text-muted-70)] mb-8 leading-relaxed">
                     For individual writers who want cleaner copy.
                   </p>
-                  <ul className="space-y-3 mb-10" role="list">
+                  <ul className="space-y-3 mb-10 flex-1" role="list">
                     {['Up to 50 scans per month', 'Real-time pattern detection', 'Rewrite suggestions', 'Email support'].map(f => (
-                      <li key={f} className="text-sm text-[var(--text-muted-70)] border-b border-[var(--border-color)] pb-3">
-                        <span className="text-[var(--accent)] mr-2" aria-hidden="true">—</span>
-                        {f}
+                      <li key={f} className="text-sm text-[var(--text-muted-70)] flex items-start gap-3">
+                        <Sparkles className="h-4 w-4 text-[var(--accent)] mt-0.5 flex-shrink-0" aria-hidden="true" />
+                        <span>{f}</span>
                       </li>
                     ))}
                   </ul>
                   <Button
                     onClick={() => scrollTo('#canvas')}
                     variant="outline"
-                    className="w-full text-sm uppercase tracking-[0.08em] font-semibold py-3 border-[var(--text-muted-30)] text-[var(--text-primary)] hover:border-[var(--accent)] hover:text-[var(--accent)] bg-transparent"
+                    className="w-full text-sm uppercase tracking-[0.08em] font-semibold py-3 border-[var(--text-muted-30)] text-[var(--text-primary)] hover:border-[var(--accent)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/5 bg-transparent rounded-xl"
                   >
                     Get Started
                   </Button>
                 </div>
 
                 {/* Professional */}
-                <div className="p-8 lg:p-10 border border-[var(--accent)] rounded-lg relative">
+                <div className="p-8 lg:p-10 border border-[var(--accent)] rounded-2xl bg-[var(--surface)] relative shadow-glow flex flex-col">
                   <Badge className="absolute -top-3 left-10 bg-[var(--accent)] text-white text-[10px] uppercase tracking-[0.15em] font-semibold px-4 py-1">
                     Most Popular
                   </Badge>
@@ -818,17 +831,17 @@ export default function Home() {
                   <p className="text-sm text-[var(--text-muted-70)] mb-8 leading-relaxed">
                     For teams and editors who review a lot of content.
                   </p>
-                  <ul className="space-y-3 mb-10" role="list">
+                  <ul className="space-y-3 mb-10 flex-1" role="list">
                     {['Unlimited scans', 'Batch analysis', 'Custom pattern library', 'Priority support', 'Team dashboard'].map(f => (
-                      <li key={f} className="text-sm text-[var(--text-muted-70)] border-b border-[var(--border-color)] pb-3">
-                        <span className="text-[var(--accent)] mr-2" aria-hidden="true">—</span>
-                        {f}
+                      <li key={f} className="text-sm text-[var(--text-muted-70)] flex items-start gap-3">
+                        <Sparkles className="h-4 w-4 text-[var(--accent)] mt-0.5 flex-shrink-0" aria-hidden="true" />
+                        <span>{f}</span>
                       </li>
                     ))}
                   </ul>
                   <Button
                     onClick={() => scrollTo('#canvas')}
-                    className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm uppercase tracking-[0.08em] font-semibold py-3"
+                    className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm uppercase tracking-[0.08em] font-semibold py-3 rounded-xl"
                   >
                     Get Started
                   </Button>
