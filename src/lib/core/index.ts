@@ -9,6 +9,20 @@ export { agentRegistry } from '../agents/registry';
 export { ragPipeline } from '../rag/pipeline';
 export { agentWorkflow, AgentWorkflow } from './workflow';
 export type { WorkflowInput, WorkflowResult, WorkflowContext } from './workflow';
+export { masterOrchestrator, MasterOrchestrator } from '../master/master';
+export { promptAnalyzer } from '../master/analyzer';
+export { skillRouter } from '../master/router';
+export type {
+  MasterRequest,
+  MasterResponse,
+  MasterAnalysis,
+  SkillStep,
+  SkillOutput,
+  Domain,
+  Intent,
+  OutputFormat,
+} from '../master/types';
+export * from './types';
 export {
   nanoBanana,
   promptOptimizer,
