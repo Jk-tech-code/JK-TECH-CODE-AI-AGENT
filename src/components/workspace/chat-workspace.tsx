@@ -337,7 +337,7 @@ export function ChatWorkspace() {
         />
 
         {/* Main chat column */}
-        <main className="flex min-w-0 flex-1 flex-col">
+        <main id="main-content" className="flex min-w-0 flex-1 flex-col">
           {/* Mobile sidebar toggle */}
           <div className="flex h-9 items-center gap-2 px-3 md:hidden">
             <Button

@@ -131,10 +131,12 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (authChecked) {
+    if (!authChecked) return;
+    const id = window.setTimeout(() => {
       fetchConversations();
       fetchDocuments();
-    }
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [authChecked, fetchConversations, fetchDocuments]);
 
   // Conversations

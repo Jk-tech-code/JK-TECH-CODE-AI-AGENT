@@ -45,11 +45,7 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
-  metadataBase: new URL(siteUrl),
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
+  metadataBase: new URL(siteUrl),  openGraph: {
     title: "JK-TECH-CODE AI — Write Like You",
     description:
       "A modern AI assistant that writes, codes, researches, and answers — with every response crafted to sound naturally human.",
@@ -130,6 +126,21 @@ const jsonLd = {
       isPartOf: { "@id": `${siteUrl}/#website` },
     },
     {
+      "@type": "SoftwareApplication",
+      "@id": `${siteUrl}/#app`,
+      name: "JK-TECH-CODE AI",
+      url: siteUrl,
+      applicationCategory: "ProductivityApplication",
+      operatingSystem: "Web",
+      description:
+        "AI assistant and humanizer. Writes, codes, researches, and answers with naturally human responses.",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+    },
+    {
       "@type": "FAQPage",
       "@id": `${siteUrl}/#faq`,
       mainEntity: [
@@ -178,6 +189,12 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${playfair.variable} antialiased`}
       >
+        <a
+          href="#main-content"
+          className="skip-to-content"
+        >
+          Skip to main content
+        </a>
         <ThemeProvider>
           {children}
           <Toaster />

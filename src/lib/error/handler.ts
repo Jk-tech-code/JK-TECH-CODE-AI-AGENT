@@ -47,7 +47,9 @@ export function handleApiError(error: unknown) {
   );
 }
 
-export function withErrorHandler(handler: Function) {
+type ApiHandler = (...args: unknown[]) => Promise<Response> | Response;
+
+export function withErrorHandler(handler: ApiHandler) {
   return async (...args: unknown[]) => {
     try {
       return await handler(...args);

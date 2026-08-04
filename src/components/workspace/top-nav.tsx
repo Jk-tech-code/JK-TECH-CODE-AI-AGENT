@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import {
-  Bell, ChevronDown, Search, User as UserIcon, Sparkles, Zap,
+  Bell, ChevronDown, PanelLeft, Search, User as UserIcon, Sparkles, Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -22,12 +22,22 @@ const MODELS = [
 ];
 
 export function TopNav({
-  onOpenSearch, modelName, onModelChange,
+  onToggleSidebar, onOpenSearch, modelName, onModelChange,
 }: TopNavProps) {
   const [modelMenu, setModelMenu] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border-color)] bg-[var(--background)]/85 px-3 backdrop-blur-md md:px-4">
+      {/* Sidebar toggle */}
+      <Button
+        variant="ghost" size="icon"
+        onClick={onToggleSidebar}
+        className="hidden h-9 w-9 shrink-0 rounded-lg text-[var(--text-muted-50)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] md:inline-flex"
+        aria-label="Toggle sidebar"
+      >
+        <PanelLeft className="h-4.5 w-4.5" />
+      </Button>
+
       {/* Brand */}
       <div className="flex items-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent)] text-white shadow-soft">

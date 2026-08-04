@@ -3,9 +3,18 @@ import type { Metadata } from 'next';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jktechcode.com';
+
 export const metadata: Metadata = {
   title: 'Pricing | JK-TECH-CODE',
   description: 'Choose the right plan for your AI writing needs. Free tier available.',
+  alternates: { canonical: '/pricing' },
+  openGraph: {
+    title: 'Pricing | JK-TECH-CODE',
+    description: 'Simple, transparent pricing for JK-TECH-CODE AI. Start free, upgrade when you need more.',
+    type: 'website',
+    url: `${siteUrl}/pricing`,
+  },
 };
 
 const plans = [

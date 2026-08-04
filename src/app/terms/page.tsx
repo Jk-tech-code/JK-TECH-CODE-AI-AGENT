@@ -1,9 +1,18 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jktechcode.com';
+
 export const metadata: Metadata = {
   title: 'Terms of Service | JK-TECH-CODE',
   description: 'JK-TECH-CODE Terms of Service — rules and guidelines for using our platform.',
+  alternates: { canonical: '/terms' },
+  openGraph: {
+    title: 'Terms of Service | JK-TECH-CODE',
+    description: 'JK-TECH-CODE Terms of Service — rules and guidelines for using our platform.',
+    type: 'website',
+    url: `${siteUrl}/terms`,
+  },
 };
 
 export default function TermsPage() {

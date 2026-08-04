@@ -1,9 +1,18 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jktechcode.com';
+
 export const metadata: Metadata = {
   title: 'Privacy Policy | JK-TECH-CODE',
   description: 'JK-TECH-CODE Privacy Policy — how we collect, use, and protect your data.',
+  alternates: { canonical: '/privacy' },
+  openGraph: {
+    title: 'Privacy Policy | JK-TECH-CODE',
+    description: 'JK-TECH-CODE Privacy Policy — how we collect, use, and protect your data.',
+    type: 'website',
+    url: `${siteUrl}/privacy`,
+  },
 };
 
 export default function PrivacyPage() {
