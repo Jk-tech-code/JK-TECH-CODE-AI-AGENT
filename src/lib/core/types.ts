@@ -9,7 +9,10 @@ export type ModelId =
   | 'deepseek-v4'
   | 'julius-ai'
   | 'glm-5.2'
-  | 'z-ai-default';
+  | 'z-ai-default'
+  | 'qwen3:4b'
+  | 'qwen3:8b'
+  | 'qwen3:14b';
 
 export type TaskCategory =
   | 'coding'

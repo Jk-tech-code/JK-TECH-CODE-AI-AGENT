@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -16,7 +17,7 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jktechcode.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://jk-ai-agent.vercel.app";
 
 export const metadata: Metadata = {
   title: {
@@ -38,6 +39,9 @@ export const metadata: Metadata = {
     "JK-TECH-CODE",
   ],
   authors: [{ name: "JK-TECH-CODE" }],
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: [
       { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
@@ -79,13 +83,15 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-  },
   other: {
     "google-site-verification": process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION || "",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#2563EB",
 };
 
 const jsonLd = {

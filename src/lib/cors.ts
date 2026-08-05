@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'https://jk-ai-agent.vercel.app',
   'https://jktechcode.com',
   process.env.NEXT_PUBLIC_SITE_URL,
 ].filter(Boolean) as string[];

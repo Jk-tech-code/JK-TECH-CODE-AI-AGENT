@@ -4,6 +4,25 @@ import { getAuthenticatedUser, unauthorized } from '@/lib/auth';
 import { ragPipeline } from '@/lib/rag/pipeline';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+/**
+ * Heuristic check for content that is not valid UTF-8 text (binary files
+ * decoded naively). Looks for replacement characters, NUL bytes and control
+ * characters in the first few KB.
+ */
+function looksBinary(text: string): boolean {
+  if (!text) return true;
+  const sample = text.slice(0, 4096);
+  let suspicious = 0;
+  for (let i = 0; i < sample.length; i++) {
+    const code = sample.charCodeAt(i);
+    // U+FFFD replacement char, NUL, low control chars, C1 controls
+    if (code === 0xfffd || code === 0 || code < 9 || (code > 127 && code < 160)) {
+      suspicious++;
+    }
+  }
+  return suspicious > sample.length * 0.1;
+}
 const ALLOWED_TYPES = {
   'text/plain': 'txt',
   'text/csv': 'csv',
@@ -42,7 +61,14 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const content = buffer.toString('utf-8');
+    const decoded = buffer.toString('utf-8');
+    // Binary formats (PDF, DOCX, XLSX, PPTX, images, …) do not survive a naive
+    // UTF-8 decode — the result is replacement characters and control bytes.
+    // Storing that garbage would poison the model's context and produce
+    // nonsensical replies, so store empty content for binary files instead.
+    // The stream route then tells the model the file was uploaded but its
+    // contents couldn't be extracted automatically.
+    const content = looksBinary(decoded) ? '' : decoded.slice(0, 100000);
     const documentName = file.name || `upload-${Date.now()}`;
 
     const doc = await db.document.create({
@@ -57,12 +83,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const chunks = await ragPipeline.chunkDocument(
-      content.slice(0, 100000),
-      documentName,
-      'unknown',
-      { title: documentName }
-    );
+    const chunks = content
+      ? await ragPipeline.chunkDocument(
+          content.slice(0, 100000),
+          documentName,
+          'unknown',
+          { title: documentName }
+        )
+      : [];
 
     if (chunks.length > 0) {
       await db.documentChunk.createMany({

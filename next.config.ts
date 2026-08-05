@@ -15,9 +15,13 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "5mb",
     },
+    optimizePackageImports: ["lucide-react", "recharts"],
+  },
+  images: {
+    formats: ["image/avif", "image/webp"],
   },
   env: {
-    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || "https://jkaiagent.vercel.app",
+    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || "https://jk-ai-agent.vercel.app",
   },
   async headers() {
     return [
@@ -42,7 +46,9 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+            // microphone=(self) allows the Web Speech API voice input on our own
+            // origin only — all other sensitive features stay blocked.
+            value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
           },
           {
             key: "Strict-Transport-Security",

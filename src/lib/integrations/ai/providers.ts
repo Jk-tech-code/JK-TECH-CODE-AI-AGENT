@@ -1,4 +1,5 @@
 import { getProvider } from '@/lib/ai/provider';
+import { isHealthy, getConfiguredModel } from '@/brain/providers/ollama';
 import { env } from '../config/env';
 import { probeHttpWithRetry } from '../utils/http';
 import type { ProviderDefinition, ProviderHealth } from '../providers/types';
@@ -98,10 +99,34 @@ const deepseekProvider: ProviderDefinition = {
   },
 };
 
+/* ── Ollama (local Brain model) ── */
+
+const ollamaProvider: ProviderDefinition = {
+  name: 'Ollama',
+  category: AI_CATEGORY,
+  isConfigured: () => true, // local, always attempted
+  check: async () => {
+    const start = Date.now();
+    const ok = await isHealthy();
+    const latencyMs = Date.now() - start;
+    if (!ok) {
+      return { name: 'Ollama', category: AI_CATEGORY, status: 'failed', latencyMs, detail: 'Local AI unavailable' };
+    }
+    return {
+      name: 'Ollama',
+      category: AI_CATEGORY,
+      status: 'connected',
+      latencyMs,
+      detail: getConfiguredModel(),
+    };
+  },
+};
+
 export const aiProviders = [
   openaiProvider,
   geminiProvider,
   claudeProvider,
   grokProvider,
   deepseekProvider,
+  ollamaProvider,
 ] as const;

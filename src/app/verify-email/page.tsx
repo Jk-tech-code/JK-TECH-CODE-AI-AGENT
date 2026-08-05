@@ -25,7 +25,7 @@ function VerifyEmailContent() {
       const { error } = await supabase.auth.signUp({
         email,
         password: 'placeholder',
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: { emailRedirectTo: `${window.location.origin}/api/auth/callback` },
       });
 
       if (error && !error.message.includes('already registered')) {

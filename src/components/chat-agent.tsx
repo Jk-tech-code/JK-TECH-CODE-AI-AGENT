@@ -6,15 +6,18 @@ import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Send, Plus, Copy, Check, Bot, User, Loader2, Trash2, Sparkles, Globe, StopCircle,
+  AlertCircle, Send, Plus, Copy, Check, Bot, User, Loader2, Trash2, RefreshCw, Sparkles, Globe, StopCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { readStream, StreamError } from '@/lib/chat/stream-client';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  error?: boolean;
+  errorText?: string;
 }
 
 const SUGGESTIONS = [
@@ -62,9 +65,9 @@ function CodeBlock({ children, className }: { children?: React.ReactNode; classN
 }
 
 function MessageBubble({
-  message, onCopy, isStreaming,
+  message, onCopy, onRetry, isStreaming,
 }: {
-  message: Message; onCopy: (text: string) => void; isStreaming?: boolean;
+  message: Message; onCopy: (text: string) => void; onRetry?: (message: Message) => void; isStreaming?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
@@ -103,10 +106,29 @@ function MessageBubble({
         <div className={`inline-block text-left rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-soft ${
           isUser
             ? 'bg-[var(--accent)] text-white rounded-tr-md'
-            : 'bg-[var(--surface)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-tl-md'
+            : message.error
+              ? 'bg-[var(--surface)] border border-red-400/40 text-[var(--text-primary)] rounded-tl-md'
+              : 'bg-[var(--surface)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-tl-md'
         }`}>
           {isUser ? (
             <span className="whitespace-pre-wrap break-words">{message.content}</span>
+          ) : message.error ? (
+            <div className="flex items-start gap-2 min-w-[260px] max-w-[420px]">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
+              <div className="text-left">
+                <p className="text-xs font-medium">{message.errorText || 'Something went wrong while generating a response.'}</p>
+                {onRetry && (
+                  <button
+                    type="button"
+                    onClick={() => onRetry(message)}
+                    className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent)] hover:underline bg-transparent border-none cursor-pointer p-0"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Retry
+                  </button>
+                )}
+              </div>
+            </div>
           ) : message.content ? (
             <div className="markdown-body text-left">
               <ReactMarkdown
@@ -196,8 +218,8 @@ export default function ChatAgent() {
     setStreamingId(null);
   }, []);
 
-  const handleSend = useCallback(async () => {
-    const trimmed = input.trim();
+  const handleSend = useCallback(async (explicitInput?: string) => {
+    const trimmed = (explicitInput ?? input).trim();
     if (!trimmed || loading) return;
 
     const userMsg: Message = { id: generateId(), role: 'user', content: trimmed, timestamp: Date.now() };
@@ -224,47 +246,37 @@ export default function ChatAgent() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Request failed.');
-        setMessages(prev => prev.filter(m => m.id !== assistantId));
-        return;
+        throw new Error(data.error || 'Request failed.');
       }
 
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error('No stream reader');
-
-      const decoder = new TextDecoder();
-      let fullContent = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.done) break;
-            if (data.content) {
-              fullContent += data.content;
-              setMessages(prev => prev.map(m =>
-                m.id === assistantId ? { ...m, content: fullContent } : m
-              ));
-            }
-          } catch (e) { console.warn('[chat-agent] failed to parse SSE chunk:', e); }
-        }
-      }
+      await readStream(res, {
+        onContent: delta => {
+          setMessages(prev => prev.map(m =>
+            m.id === assistantId ? { ...m, content: m.content + delta } : m
+          ));
+        },
+      });
 
       setMessages(prev => prev.map(m =>
-        m.id === assistantId ? { ...m, content: fullContent, timestamp: Date.now() } : m
+        m.id === assistantId ? { ...m, content: m.content, timestamp: Date.now(), streaming: false } : m
       ));
     } catch (err: any) {
       if (err?.name === 'AbortError') {
+        // Keep whatever streamed so far — never leave a blank assistant bubble.
+        setMessages(prev => prev.filter(m => !(m.id === assistantId && !m.content)).map(m =>
+          m.id === assistantId ? { ...m, streaming: false } : m
+        ));
         toast.info('Stream stopped.');
       } else {
-        toast.error('Network error.');
-        setMessages(prev => prev.filter(m => m.id !== assistantId));
+        const message = err instanceof StreamError ? err.message
+          : err instanceof Error ? err.message
+            : 'Something went wrong. Please try again.';
+        console.error('[chat-agent] stream failed:', err);
+        setMessages(prev => prev.map(m => {
+          if (m.id !== assistantId) return m;
+          if (m.content) return { ...m, streaming: false };
+          return { ...m, streaming: false, error: true, errorText: message };
+        }));
       }
     } finally {
       setLoading(false);
@@ -273,6 +285,14 @@ export default function ChatAgent() {
       setTimeout(() => textareaRef.current?.focus(), 100);
     }
   }, [input, loading, messages]);
+
+  const handleRetry = useCallback((failedMsg: Message) => {
+    const idx = messages.findIndex(m => m.id === failedMsg.id);
+    const precedingUser = [...messages.slice(0, idx)].reverse().find(m => m.role === 'user');
+    if (!precedingUser) return;
+    setMessages(prev => prev.slice(0, Math.max(0, prev.findIndex(m => m.id === precedingUser.id))));
+    void handleSend(precedingUser.content);
+  }, [messages, handleSend]);
 
   const handleSuggestion = useCallback((text: string) => {
     setInput(text);
@@ -351,6 +371,7 @@ export default function ChatAgent() {
             <AnimatePresence initial={false}>
               {messages.map(msg => (
                 <MessageBubble key={msg.id} message={msg} onCopy={handleCopy}
+                  onRetry={handleRetry}
                   isStreaming={msg.id === streamingId} />
               ))}
             </AnimatePresence>
@@ -389,7 +410,7 @@ export default function ChatAgent() {
                 <StopCircle className="h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleSend} disabled={!input.trim()}
+              <Button onClick={() => void handleSend()} disabled={!input.trim()}
                 className="flex-shrink-0 h-10 w-10 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white p-0 flex items-center justify-center disabled:opacity-40"
                 aria-label="Send message">
                 <Send className="h-4 w-4" />

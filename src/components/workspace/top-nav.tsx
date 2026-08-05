@@ -1,30 +1,70 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  Bell, ChevronDown, PanelLeft, Search, User as UserIcon, Sparkles, Zap,
+  Bell, Check, ChevronDown, PanelLeft, Search, User as UserIcon, Sparkles, Zap, Brain, Eye, Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { MODEL_OPTIONS, type ModelOption } from '@/lib/core/model-catalog';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface TopNavProps {
   onToggleSidebar: () => void;
   onOpenSearch: () => void;
+  /** Human-readable label of the currently selected model. */
   modelName: string;
-  onModelChange: (model: string) => void;
+  /** Catalog id of the currently selected model. */
+  modelId: string;
+  onModelChange: (modelId: string) => void;
 }
 
-const MODELS = [
-  { id: 'gpt-4o-mini', label: 'JK-TECH-CODE Assistant', badge: 'Fast' },
-  { id: 'gpt-4o', label: 'JK-TECH-CODE Pro', badge: 'Smart' },
-  { id: 'research', label: 'Research Mode', badge: 'Deep' },
-];
+/** Providers ordered for the picker — 'Automatic' first, then by family. */
+const PROVIDER_ORDER = ['Automatic', 'OpenAI', 'Anthropic', 'Google', 'DeepSeek'];
+
+function providerGroups(): Array<{ provider: string; options: ModelOption[] }> {
+  const groups = new Map<string, ModelOption[]>();
+  for (const opt of MODEL_OPTIONS) {
+    const list = groups.get(opt.provider) ?? [];
+    list.push(opt);
+    groups.set(opt.provider, list);
+  }
+  const sorted = [...groups.entries()].sort((a, b) => {
+    const ia = PROVIDER_ORDER.indexOf(a[0]);
+    const ib = PROVIDER_ORDER.indexOf(b[0]);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+  return sorted.map(([provider, options]) => ({ provider, options }));
+}
+
+// MODEL_OPTIONS is a module constant — the grouped view never changes.
+const MODEL_GROUPS = providerGroups();
 
 export function TopNav({
-  onToggleSidebar, onOpenSearch, modelName, onModelChange,
+  onToggleSidebar, onOpenSearch, modelName, modelId, onModelChange,
 }: TopNavProps) {
   const [modelMenu, setModelMenu] = useState(false);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close the model dropdown on outside click or Escape.
+  useEffect(() => {
+    if (!modelMenu) return;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (!modelMenuRef.current?.contains(e.target as Node)) setModelMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setModelMenu(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [modelMenu]);
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border-color)] bg-[var(--background)]/85 px-3 backdrop-blur-md md:px-4">
@@ -49,7 +89,7 @@ export function TopNav({
       </div>
 
       {/* Model selector */}
-      <div className="relative">
+      <div className="relative" ref={modelMenuRef}>
         <button
           type="button"
           onClick={() => setModelMenu(v => !v)}
@@ -65,26 +105,56 @@ export function TopNav({
         {modelMenu && (
           <div
             role="menu"
-            className="absolute left-0 top-full z-50 mt-1.5 w-56 overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--surface)] p-1 shadow-lift"
+            aria-label="Model selection"
+            className="absolute left-0 top-full z-50 mt-1.5 max-h-[70vh] w-72 overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--surface)] p-1 shadow-lift"
           >
             <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted-50)]">
               Choose model
             </p>
-            {MODELS.map(m => (
-              <button
-                key={m.id}
-                type="button"
-                role="menuitem"
-                onClick={() => { onModelChange(m.label); setModelMenu(false); }}
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] text-[var(--text-muted-70)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-              >
-                <span>{m.label}</span>
-                {m.badge && (
-                  <span className="rounded-full bg-[var(--surface-accent)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]">
-                    {m.badge}
-                  </span>
-                )}
-              </button>
+
+            {MODEL_GROUPS.map(group => (
+              <div key={group.provider} role="group" aria-label={group.provider}>
+                <p className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted-30)]">
+                  {group.provider}
+                </p>
+                {group.options.map(m => {
+                  const selected = m.modelId === modelId;
+                  return (
+                    <button
+                      key={m.modelId}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={selected}
+                      onClick={() => { onModelChange(m.modelId); setModelMenu(false); }}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors',
+                        selected
+                          ? 'bg-[var(--surface-accent)] text-[var(--text-primary)]'
+                          : 'text-[var(--text-muted-70)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]',
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{m.label}</span>
+                      {m.supportsThinking && (
+                        <span
+                          className="flex shrink-0 items-center gap-0.5 rounded-full bg-[var(--surface-accent)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--accent)]"
+                          title="Supports reasoning / extended thinking"
+                        >
+                          <Brain className="h-2.5 w-2.5" /> Thinking
+                        </span>
+                      )}
+                      {m.supportsVision && (
+                        <span
+                          className="flex shrink-0 items-center gap-0.5 rounded-full bg-[var(--surface-accent)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--text-muted-70)]"
+                          title="Supports image input"
+                        >
+                          <Eye className="h-2.5 w-2.5" /> Vision
+                        </span>
+                      )}
+                      {selected && <Check className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />}
+                    </button>
+                  );
+                })}
+              </div>
             ))}
           </div>
         )}
@@ -109,6 +179,15 @@ export function TopNav({
           <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
         </Button>
         <ThemeToggle />
+
+        <Link
+          href="/settings/ai"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted-50)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+          aria-label="AI settings"
+          title="AI settings"
+        >
+          <Settings className="h-4.5 w-4.5" />
+        </Link>
 
         <button
           type="button"

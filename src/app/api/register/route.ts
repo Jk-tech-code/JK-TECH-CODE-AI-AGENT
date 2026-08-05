@@ -32,7 +32,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email address.' }, { status: 400 });
     }
 
-    // Use Supabase Auth to create the user (consistent with login)
+    // Use Supabase Auth to create the user (consistent with login).
+    // The confirmation email must point back to the app's callback route so
+    // the generated link matches the allowed Redirect URLs in both local
+    // (http://localhost:3000/**) and production (https://jk-ai-agent.vercel.app/**).
+    const origin = new URL(request.url).origin;
     const supabase = await createClient();
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -41,6 +45,7 @@ export async function POST(request: NextRequest) {
         data: {
           name: name || null,
         },
+        emailRedirectTo: `${origin}/api/auth/callback`,
       },
     });
 

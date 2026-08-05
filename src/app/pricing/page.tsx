@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jktechcode.com';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jk-ai-agent.vercel.app';
 
 export const metadata: Metadata = {
   title: 'Pricing | JK-TECH-CODE',

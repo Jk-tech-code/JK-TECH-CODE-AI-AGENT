@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jktechcode.com';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jk-ai-agent.vercel.app';
 
 export const metadata: Metadata = {
   title: 'Terms of Service | JK-TECH-CODE',

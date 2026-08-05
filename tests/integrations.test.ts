@@ -14,6 +14,12 @@ vi.mock('@/lib/ai/provider', () => ({
   getProvider: () => ({ chat: vi.fn() }),
 }));
 
+vi.mock('@/brain/providers/ollama', () => ({
+  isHealthy: vi.fn(async () => false),
+  getConfiguredModel: () => 'qwen3:4b',
+  getOllamaHost: () => 'http://localhost:11434',
+}));
+
 vi.mock('ioredis', () => {
   class MockRedis {
     ping = vi.fn();
@@ -145,7 +151,7 @@ describe('health check engine', () => {
     registerAllIntegrations();
     const ai = await checkHealth('ai');
     expect(ai.providers.every(p => p.category === 'ai')).toBe(true);
-    expect(ai.providers.length).toBe(5);
+    expect(ai.providers.length).toBe(6); // OpenAI, Gemini, Claude, Grok, DeepSeek, Ollama
   });
 
   it('maps status to HTTP codes', () => {
@@ -236,10 +242,19 @@ describe('AI provider health checks', () => {
     global.fetch = fetchMock as unknown as typeof fetch;
 
     for (const provider of aiProviders) {
+      if (provider.name === 'Ollama') continue; // local, always attempted
       const health = await provider.check();
       expect(health.status).toBe('missing');
     }
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('Ollama reports failed when the local server is down', async () => {
+    const ollama = aiProviders.find(p => p.name === 'Ollama')!;
+    expect(ollama.isConfigured()).toBe(true); // local, always attempted
+    const health = await ollama.check();
+    expect(health.status).toBe('failed');
+    expect(health.detail).toContain('Local AI');
   });
 
   it('reports connected when the models endpoint responds', async () => {
@@ -252,6 +267,7 @@ describe('AI provider health checks', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
 
     for (const provider of aiProviders) {
+      if (provider.name === 'Ollama') continue; // covered separately (local)
       const health = await provider.check();
       expect(health.status).toBe('connected');
     }
