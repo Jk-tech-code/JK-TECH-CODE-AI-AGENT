@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthenticatedUser, unauthorized } from '@/lib/auth';
 import { ragPipeline } from '@/lib/rag/pipeline';
+import { extractFileText } from '@/lib/rag/extract';
+import { createLogger } from '@/lib/logging/logger';
 
+const uploadLogger = createLogger('api:upload');
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 /**
@@ -61,21 +64,22 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const decoded = buffer.toString('utf-8');
-    // Binary formats (PDF, DOCX, XLSX, PPTX, images, …) do not survive a naive
-    // UTF-8 decode — the result is replacement characters and control bytes.
-    // Storing that garbage would poison the model's context and produce
-    // nonsensical replies, so store empty content for binary files instead.
-    // The stream route then tells the model the file was uploaded but its
-    // contents couldn't be extracted automatically.
-    const content = looksBinary(decoded) ? '' : decoded.slice(0, 100000);
+
+    // Extract text: real parsers for PDF/DOCX/XLSX, raw UTF-8 decode for text
+    // formats. Extraction failures produce empty content (acknowledged later by
+    // the Brain instead of hallucinated).
+    const extracted = await extractFileText(buffer, file.type);
+    let content = extracted.content;
+    const looksTextLike = !looksBinary(content);
+    if (!looksTextLike) content = '';
+    content = content.slice(0, 100000);
     const documentName = file.name || `upload-${Date.now()}`;
 
     const doc = await db.document.create({
       data: {
         userId: user.id,
         title: documentName,
-        content: content.slice(0, 100000),
+        content,
         sourceType: fileType,
         fileType,
         fileSize: file.size,
@@ -87,21 +91,64 @@ export async function POST(request: NextRequest) {
       ? await ragPipeline.chunkDocument(
           content.slice(0, 100000),
           documentName,
-          'unknown',
+          fileType as 'unknown',
           { title: documentName }
         )
       : [];
 
+    // Persist embeddings when a real embedding provider is available so chunk
+    // retrieval is vector-based; the fallback provider is skipped to avoid
+    // persisting meaningless pseudo-embeddings.
+    let embeddingsPersisted = 0;
     if (chunks.length > 0) {
+      let hasRealProvider = true;
+      try {
+        const { embeddingProvider } = await import('@/lib/rag/embedding');
+        hasRealProvider = embeddingProvider.name !== 'fallback';
+      } catch {
+        hasRealProvider = false;
+      }
+
+      const rows = chunks.map(c => ({
+        documentId: doc.id,
+        content: c.content,
+        chunkIndex: c.metadata.chunkIndex,
+        metadata: JSON.stringify(c.metadata),
+        embedding: null as string | null,
+      }));
+
+      if (hasRealProvider) {
+        try {
+          await ragPipeline.embedChunks(chunks);
+          chunks.forEach((c, i) => {
+            if (c.embedding && rows[i]) rows[i].embedding = JSON.stringify(c.embedding);
+          });
+          embeddingsPersisted = rows.filter((r) => r.embedding).length;
+        } catch (err) {
+          uploadLogger.warn('Embedding computation failed; storing text chunks only', { documentId: doc.id });
+          uploadLogger.error('Embedding error', err);
+        }
+      }
+
       await db.documentChunk.createMany({
-        data: chunks.map(c => ({
-          documentId: doc.id,
-          content: c.content,
-          chunkIndex: c.metadata.chunkIndex,
-          metadata: JSON.stringify(c.metadata),
+        data: rows.map((r) => ({
+          documentId: r.documentId,
+          content: r.content,
+          chunkIndex: r.chunkIndex,
+          metadata: r.metadata,
+          embedding: r.embedding,
         })),
       });
     }
+
+    uploadLogger.info('Upload processed', {
+      documentId: doc.id,
+      fileType,
+      chunks: chunks.length,
+      embeddings: embeddingsPersisted,
+      extractedBy: extracted.extractedBy,
+      pageCount: extracted.pageCount,
+    });
 
     return NextResponse.json({
       id: doc.id,
@@ -109,10 +156,11 @@ export async function POST(request: NextRequest) {
       fileType: doc.fileType,
       fileSize: doc.fileSize,
       chunksCreated: chunks.length,
+      embeddingsPersisted,
       createdAt: doc.createdAt,
     });
   } catch (error) {
-    console.error('Upload error:', error);
+    uploadLogger.error('Upload error', error);
     return NextResponse.json({ error: 'Upload failed.' }, { status: 500 });
   }
 }

@@ -23,6 +23,8 @@ export interface BrainSettings {
   model: string;
   temperature: number;
   topP: number;
+  /** Top-K sampling (Ollama). 0 disables. */
+  topK: number;
   maxTokens: number;
   streaming: boolean;
   memoryEnabled: boolean;
@@ -38,6 +40,7 @@ export const DEFAULT_SETTINGS: BrainSettings = {
   model: 'qwen3:4b',
   temperature: 0.7,
   topP: 0.9,
+  topK: 0,
   maxTokens: 1024,
   streaming: true,
   memoryEnabled: true,

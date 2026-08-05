@@ -71,6 +71,42 @@ export default function AISettingsPage() {
     }
   }, [settings]);
 
+  const exportSettings = useCallback(() => {
+    const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'jk-tech-ai-settings.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast.success('Settings exported.');
+  }, [settings]);
+
+  const onImportFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as Partial<BrainSettings>;
+      // Merge only known numeric/string/boolean fields; discard the rest.
+      const merged = { ...settings };
+      for (const key of Object.keys(parsed) as Array<keyof BrainSettings>) {
+        const v = parsed[key];
+        if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') {
+          (merged as Record<string, unknown>)[key] = v;
+        }
+      }
+      setSettings(merged);
+      setSaved(false);
+      toast.success('Settings imported — review and Save to apply.');
+    } catch {
+      toast.error('Invalid settings file.');
+    }
+  }, [settings]);
+
   const providerOk = status?.available !== false;
 
   const slider = useMemo(() => (label: string, value: number, min: number, max: number, step: number, unit: string, onChange: (v: number) => void) => (
@@ -179,6 +215,7 @@ export default function AISettingsPage() {
           <CardContent className="space-y-6">
             {slider('Temperature', settings.temperature, 0, 2, 0.1, '', (v) => update('temperature', v))}
             {slider('Top P', settings.topP, 0.05, 1, 0.05, '', (v) => update('topP', v))}
+            {slider('Top K', settings.topK, 0, 128, 1, '', (v) => update('topK', v))}
             {slider('Max Tokens', settings.maxTokens, 256, 8192, 256, '', (v) => update('maxTokens', v))}
 
             <div className="space-y-2">
@@ -253,6 +290,16 @@ export default function AISettingsPage() {
               </div>
               <Switch checked={settings.streaming !== false} onCheckedChange={(v) => update('streaming', v)} />
             </div>
+
+            <div className="flex items-center justify-between border-t border-[var(--border-color)] pt-4">
+              <div>
+                <p className="text-sm text-[var(--text-primary)]">Manage Memories</p>
+                <p className="text-xs text-[var(--text-muted-50)]">Search, edit, or forget what the Brain remembers.</p>
+              </div>
+              <Link href="/settings/memory" className="rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted-70)] transition-colors hover:border-[var(--accent)]/40 hover:text-[var(--accent)]">
+                Open
+              </Link>
+            </div>
           </CardContent>
         </Card>
 
@@ -287,6 +334,25 @@ export default function AISettingsPage() {
                 onChange={(e) => update('personality', e.target.value)}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Export / Import */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Save className="h-4 w-4 text-[var(--accent)]" /> Export / Import
+            </CardTitle>
+            <CardDescription>Back up your Brain settings as a JSON file, or restore them later.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            <Button variant="outline" onClick={exportSettings}>
+              <Save className="h-4 w-4" /> Export settings
+            </Button>
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 py-2 text-sm font-medium text-[var(--text-muted-70)] transition-colors hover:border-[var(--accent)]/40 hover:text-[var(--accent)]">
+              Import settings
+              <input type="file" accept="application/json" className="hidden" onChange={onImportFile} />
+            </label>
           </CardContent>
         </Card>
 

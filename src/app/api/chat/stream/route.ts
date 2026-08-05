@@ -8,6 +8,7 @@ import { securityGuard } from '@/lib/security/guard';
 import { brainStream } from '@/brain';
 import { loadSettings } from '@/brain/settings';
 import { createLogger } from '@/lib/logging/logger';
+import { rateLimit } from '@/lib/security/rate-limit';
 
 const streamLogger = createLogger('chat:stream');
 
@@ -39,6 +40,27 @@ export async function POST(request: NextRequest) {
 
     if (!messages && !query) {
       return new Response(JSON.stringify({ error: 'Provide a message or query.' }), { status: 400 });
+    }
+
+    // Stricter per-user chat rate limit on top of the middleware IP limit
+    // (Ollama generation is compute-heavy; this protects the local server).
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || '127.0.0.1';
+    const rlKey = conversationId ? `chat:${conversationId}` : `chat:anon:${ip}`;
+    const rl = rateLimit(rlKey, { limit: 30, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many messages. Please wait a moment and try again.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 1000))),
+            'X-RateLimit-Limit': String(rl.limit),
+            'X-RateLimit-Remaining': '0',
+          },
+        },
+      );
     }
 
     // Verify conversation ownership if conversationId is provided

@@ -98,6 +98,17 @@ export class RagPipeline {
     return embeddingProvider.embed(chunk.content);
   }
 
+  /** Compute and attach embeddings for a batch of chunks (in place). */
+  async embedChunks(chunks: RagChunk[]): Promise<RagChunk[]> {
+    if (chunks.length === 0) return chunks;
+    const texts = chunks.map((c) => c.content);
+    const vectors = await embeddingProvider.embedBatch(texts);
+    chunks.forEach((c, i) => {
+      if (vectors[i]) c.embedding = vectors[i];
+    });
+    return chunks;
+  }
+
   async retrieve(query: RagQuery, chunks: RagChunk[]): Promise<RagResult> {
     const startTime = Date.now();
     const queryEmbedding = await this.computeTextEmbedding(query.query);

@@ -35,6 +35,8 @@ export interface OllamaOptions {
   /** Extra sampler options passed verbatim to Ollama `/api/chat` options. */
   temperature?: number;
   topP?: number;
+  /** Top-K sampling; 0 disables. */
+  topK?: number;
   maxTokens?: number;
   /** qwen3 derivative models: set false to disable hidden "thinking". */
   thinking?: boolean;
@@ -105,6 +107,7 @@ export async function* streamChatRaw(
     options: {
       ...(options.temperature != null ? { temperature: options.temperature } : {}),
       ...(options.topP != null ? { top_p: options.topP } : {}),
+      ...(options.topK != null && options.topK > 0 ? { top_k: options.topK } : {}),
       ...(options.maxTokens != null ? { num_predict: options.maxTokens } : {}),
       ...(options.thinking != null ? { think: options.thinking } : {}),
     },
@@ -193,6 +196,7 @@ export async function chatComplete(
     options: {
       ...(options.temperature != null ? { temperature: options.temperature } : {}),
       ...(options.topP != null ? { top_p: options.topP } : {}),
+      ...(options.topK != null && options.topK > 0 ? { top_k: options.topK } : {}),
       ...(options.maxTokens != null ? { num_predict: options.maxTokens } : {}),
       ...(options.thinking != null ? { think: options.thinking } : {}),
     },

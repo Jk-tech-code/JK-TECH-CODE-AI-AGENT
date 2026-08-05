@@ -9,6 +9,8 @@
  */
 import { db } from '@/lib/db';
 import { createLogger } from '@/lib/logging/logger';
+import { embeddingProvider } from '@/lib/rag/embedding';
+import { securityGuard } from '@/lib/security/guard';
 
 const knowledgeLogger = createLogger('brain:knowledge');
 
@@ -67,6 +69,13 @@ export async function buildFileContext(
         continue;
       }
 
+      // Guard against RAG poisoning: document content must never be able to
+      // override the assistant's instructions.
+      if (securityGuard.analyzeRagSource(content.slice(0, 4000)).isSafe === false) {
+        parts.push(`- [Attached file: ${title} — content withheld for safety.]`);
+        continue;
+      }
+
       if (content.length > budget) content = content.slice(0, budget);
       budget -= content.length;
       parts.push(`Attached file: ${title}\n--- BEGIN CONTENT ---\n${content}\n--- END CONTENT ---`);
@@ -82,6 +91,9 @@ export async function buildFileContext(
 /**
  * Retrieve relevant chunks from a specific stored document for RAG-style
  * grounding (used when the user references their own uploaded documents).
+ *
+ * Uses stored vector embeddings when available (fast, accurate); otherwise
+ * falls back to keyword-overlap scoring over the document's chunks.
  */
 export async function retrieveDocumentGrounding(
   fileId: string,
@@ -96,21 +108,132 @@ export async function retrieveDocumentGrounding(
     });
     if (!doc || (userId && doc.userId !== userId)) return '';
 
-    const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 3);
-    const scored = doc.chunks
-      .map((chunk) => {
-        const c = chunk.content.toLowerCase();
-        const hits = terms.filter((t) => c.includes(t)).length;
-        return { chunk, score: terms.length ? hits / terms.length : 0 };
-      })
-      .filter((s) => s.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
-
-    if (scored.length === 0) return returnRawHead(doc.content, 1500);
-    return `Relevant excerpt from "${doc.title}":\n${scored.map((s) => s.chunk.content).join('\n...\n')}`;
+    const top = await rankChunks(doc.chunks, query, topK);
+    if (top.length === 0) return returnRawHead(doc.content, 1500);
+    return `Relevant excerpt from "${doc.title}":\n${top.join('\n...\n')}`;
   } catch (err) {
     knowledgeLogger.error('Document grounding failed', err);
+    return '';
+  }
+}
+
+function cosine(a: number[], b: number[]): number {
+  if (!a || !b || a.length === 0 || a.length !== b.length) return 0;
+  let dot = 0, ma = 0, mb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    ma += a[i] * a[i];
+    mb += b[i] * b[i];
+  }
+  const denom = Math.sqrt(ma) * Math.sqrt(mb);
+  return denom === 0 ? 0 : dot / denom;
+}
+
+/**
+ * Rank a list of stored chunks against a query. Prefers vector embeddings when
+ * they are persisted; blends in keyword overlap to stay robust for short/odd
+ * queries and for the deterministic fallback embedding provider.
+ */
+async function rankChunks(
+  chunks: Array<{ content: string; embedding: string | null }>,
+  query: string,
+  topK: number,
+): Promise<string[]> {
+  const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 3);
+  if (chunks.length === 0) return [];
+
+  const useVectors = chunks.some((c) => c.embedding);
+  let queryEmbedding: number[] | null = null;
+  if (useVectors && embeddingProvider.name !== 'fallback') {
+    try {
+      queryEmbedding = await embeddingProvider.embed(query);
+    } catch {
+      queryEmbedding = null;
+    }
+  }
+
+  const scored = chunks
+    .map((chunk) => {
+      const content = chunk.content.toLowerCase();
+      const hits = terms.filter((t) => content.includes(t)).length;
+      const termScore = terms.length ? hits / terms.length : 0;
+
+      let vectorScore = 0;
+      if (queryEmbedding && chunk.embedding) {
+        try {
+          vectorScore = cosine(queryEmbedding, JSON.parse(chunk.embedding) as number[]);
+        } catch {
+          vectorScore = 0;
+        }
+      }
+
+      // Weight vector similarity higher when it's real; fall back to terms.
+      const score = queryEmbedding ? vectorScore * 0.7 + termScore * 0.3 : termScore;
+      return { content: chunk.content, score };
+    })
+    .filter((s) => s.score > 0)
+    // RAG poisoning guard: never let retrieved document text act as instructions.
+    .filter((s) => securityGuard.analyzeRagSource(s.content.slice(0, 4000)).isSafe)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
+
+  return scored.map((s) => s.content);
+}
+
+/**
+ * Search all of a user's uploaded documents for chunks relevant to a query
+ * and return them as compact context. Used to ground answers in the user's own
+ * knowledge base without dumping whole files into the prompt.
+ */
+export async function retrieveKnowledgeForQuery(
+  userId: string | undefined,
+  query: string,
+  topK = 3,
+  maxDocs = 5,
+): Promise<string> {
+  if (!userId) return '';
+  const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 3);
+  if (terms.length === 0) return '';
+
+  try {
+    const docs = await db.document.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+      select: { id: true, title: true, content: true },
+    });
+    if (docs.length === 0) return '';
+
+    // Prefer docs whose title/metadata mention the query terms, then fall back
+    // to the most recently updated set so we stay fast and bounded.
+    const rankedDocs = docs
+      .map((d) => ({
+        doc: d,
+        score: terms.filter((t) => `${d.title}`.toLowerCase().includes(t)).length,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxDocs);
+
+    const excerpts: string[] = [];
+    for (const { doc } of rankedDocs) {
+      const chunks = await db.documentChunk.findMany({
+        where: { documentId: doc.id },
+        orderBy: { chunkIndex: 'asc' },
+        take: 200,
+        select: { content: true, embedding: true },
+      });
+      const top = await rankChunks(chunks, query, 2);
+      for (const t of top) excerpts.push(`[${doc.title}]\n${t}`);
+    }
+
+    if (excerpts.length === 0) {
+      // Fall back to the head of the best-matching document.
+      const best = rankedDocs[0]?.doc;
+      if (best?.content) return `[${best.title}]\n${returnRawHead(best.content, 1200)}`;
+    }
+    return excerpts.slice(0, topK).join('\n\n');
+  } catch (err) {
+    knowledgeLogger.error('Knowledge retrieval failed', err);
     return '';
   }
 }

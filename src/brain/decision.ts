@@ -11,6 +11,8 @@ import type { BrainSettings, Complexity, Intent, ReasoningLevel } from './types'
 export interface GenerationPlan {
   temperature: number;
   topP: number;
+  /** Top-K sampling; 0 disables. */
+  topK: number;
   maxTokens: number;
   /** Enable the model's extended thinking when the reasoning level demands it. */
   thinking: boolean;
@@ -43,6 +45,7 @@ export function decideGenerationPlan(
   return {
     temperature: round1(temperature),
     topP: clamp(settings.topP ?? 0.9, 0.05, 1),
+    topK: clamp(settings.topK ?? 0, 0, 128),
     maxTokens,
     thinking,
     streaming: settings.streaming !== false,

@@ -19,7 +19,8 @@ import { classifyIntent, estimateComplexity } from './intent';
 import { buildPlanningDirective } from './planning';
 import { buildReasoningDirective } from './reasoning';
 import { recall, rememberExchange } from './memory';
-import { buildFileContext } from './knowledge';
+import { buildFileContext, retrieveKnowledgeForQuery } from './knowledge';
+import { runTools } from './tools';
 import { buildContextBlock } from './context';
 import type { BrainContextBlock } from './types';
 import { decideGenerationPlan, shouldPersistMemory } from './decision';
@@ -85,6 +86,18 @@ export async function buildRequestContext(
     ? await buildFileContext(req.attachments, req.userId)
     : '';
 
+  // Grounding from the user's own knowledge base (uploaded documents).
+  // Only queried when knowledge is enabled; retrieval injects compact,
+  // relevant excerpts so prompts are never overloaded with whole files.
+  const knowledge = settings.knowledgeEnabled !== false
+    ? await retrieveKnowledgeForQuery(req.userId, query, 3, 5)
+    : '';
+
+  // Tool execution — deterministic tools (calculator, web search) that the
+  // Brain auto-invokes when the query needs them. Results feed the context
+  // block, never the visible reasoning.
+  const toolsOutput = await runTools({ userId: req.userId, query });
+
   // Planning + reasoning directives (internal).
   const planningNote = buildPlanningDirective(intent, complexity, settings.reasoningLevel ?? 'medium');
   const reasoning = buildReasoningDirective(query, intent, complexity, settings.reasoningLevel ?? 'medium');
@@ -95,7 +108,7 @@ export async function buildRequestContext(
     complexity,
     conversationMessages: req.messages,
     memories,
-    knowledge: '',
+    knowledge: toolsOutput ? `${knowledge}\n\n${toolsOutput}`.trim() : knowledge,
     files,
     planningNote,
     reasoningNote: reasoning.emphasis,
@@ -156,6 +169,7 @@ export async function brainComplete(req: BrainRequest, hooks?: BrainStreamHooks)
     const result = await complete(messages, {
       temperature: plan.temperature,
       topP: plan.topP,
+      topK: plan.topK,
       maxTokens: plan.maxTokens,
       thinking: plan.thinking,
     });
@@ -226,6 +240,7 @@ export async function* brainStream(
     for await (const chunk of stream(messages, {
       temperature: plan.temperature,
       topP: plan.topP,
+      topK: plan.topK,
       maxTokens: plan.maxTokens,
       thinking: plan.thinking,
     })) {

@@ -54,6 +54,8 @@ export interface LLMCompleteResult {
 export interface LLMOptions {
   temperature?: number;
   topP?: number;
+  /** Top-K sampling; 0 disables. */
+  topK?: number;
   maxTokens?: number;
   thinking?: boolean;
 }
@@ -111,6 +113,7 @@ export async function complete(
       const result = await chatComplete(messages, {
         temperature: options.temperature,
         topP: options.topP,
+        topK: options.topK,
         maxTokens: options.maxTokens,
         thinking: options.thinking,
       });
@@ -156,6 +159,7 @@ export async function* stream(
       for await (const chunk of streamChatRaw(messages, {
         temperature: options.temperature,
         topP: options.topP,
+        topK: options.topK,
         maxTokens: options.maxTokens,
         thinking: options.thinking,
       })) {
