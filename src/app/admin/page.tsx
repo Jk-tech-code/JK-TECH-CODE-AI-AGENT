@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Brain, Cpu, Loader2, RefreshCw, Database, Gauge, Shield, FileText, MessageSquare, Activity, Zap,
+  Brain, Cpu, Loader2, RefreshCw, Database, Gauge, Shield, FileText, MessageSquare, Activity, Zap, Wrench, Puzzle,
 } from 'lucide-react';
 
 type HealthStatus = 'connected' | 'missing' | 'failed';
@@ -56,6 +56,20 @@ export default function AdminDashboardPage() {
   const [data, setData] = useState<AdminPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [autonomy, setAutonomy] = useState<{
+    tools?: Array<{ id: string; name: string; ok: boolean; calls: number; failures: number }>;
+    plugins?: Array<{ manifest: { id: string; name: string; enabled: boolean }; health: { ok: boolean } }>;
+    runtime?: Array<{ label: string; ok: boolean; detail: string }>;
+  } | null>(null);
+
+  const loadAutonomy = useCallback(async () => {
+    try {
+      const res = await fetch('/api/autonomy/status');
+      if (res.ok) setAutonomy(await res.json());
+    } catch {
+      /* admin-only endpoint may be unavailable */
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,8 +93,9 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
     const interval = setInterval(() => void load(), 15000);
-    return () => { clearTimeout(t); clearInterval(interval); };
-  }, [load]);
+    const ta = setTimeout(() => void loadAutonomy(), 100);
+    return () => { clearTimeout(t); clearInterval(interval); clearTimeout(ta); };
+  }, [load, loadAutonomy]);
 
   const fmtUptime = (s: number) => {
     const h = Math.floor(s / 3600);
@@ -268,6 +283,62 @@ export default function AdminDashboardPage() {
                   </ul>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Autonomy stack — tools + plugins health */}
+            {autonomy && (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-[var(--accent)]" /> Tool Health
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="divide-y divide-[var(--border-color)]">
+                      {(autonomy.tools ?? []).map((t) => (
+                        <li key={t.id} className="flex items-center gap-2 py-2 text-sm">
+                          <span className={`h-2 w-2 rounded-full ${t.ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                          <span className="text-[var(--text-primary)]">{t.name}</span>
+                          <span className="ml-auto text-[11px] text-[var(--text-muted-50)]">
+                            {t.calls} calls · {t.failures} failures
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Puzzle className="h-4 w-4 text-[var(--accent)]" /> Plugin Health
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="divide-y divide-[var(--border-color)]">
+                      {(autonomy.plugins ?? []).map((p) => (
+                        <li key={p.manifest.id} className="flex items-center gap-2 py-2 text-sm">
+                          <span className={`h-2 w-2 rounded-full ${p.health.ok ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                          <span className="text-[var(--text-primary)]">{p.manifest.name}</span>
+                          <span className="ml-auto text-[11px] text-[var(--text-muted-50)]">
+                            {p.manifest.enabled ? 'enabled' : 'disabled'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-3 border-t border-[var(--border-color)] pt-3">
+                      <p className="mb-1 text-xs font-medium text-[var(--text-muted-70)]">Autonomy runtime</p>
+                      {(autonomy.runtime ?? []).map((r) => (
+                        <div key={r.label} className="flex items-center gap-2 py-1 text-xs">
+                          <span className={`h-1.5 w-1.5 rounded-full ${r.ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                          <span className="text-[var(--text-muted-70)]">{r.label}</span>
+                          <span className="ml-auto truncate pl-2 text-[var(--text-muted-50)]">{r.detail}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             )}
           </>
         ) : null}

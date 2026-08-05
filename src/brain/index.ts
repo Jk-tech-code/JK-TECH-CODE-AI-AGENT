@@ -39,3 +39,19 @@ export type {
   ReasoningLevel,
 } from './types';
 export { DEFAULT_SETTINGS } from './types';
+
+// ─── Autonomy — the autonomous agent framework layered on the Brain ───
+export { taskPlanner, planProgress } from './autonomy/planner';
+export { taskExecutor, runAutonomy } from './autonomy/executor';
+export { toolManager, ToolManager } from './autonomy/tool-manager';
+export { pluginRegistry, PluginRegistry } from './autonomy/plugins';
+export { projectStore, ProjectStore } from './autonomy/projects';
+export { workflowStore, WorkflowStore } from './autonomy/workflows';
+export { codeSandbox, CodeSandbox } from './autonomy/sandbox';
+export { qualityGate } from './autonomy/quality';
+export { unifiedSearch, UnifiedSearch } from './autonomy/search';
+export { buildAutonomyReport } from './autonomy/observability';
+export { apiKeyStore, rateLimitApiKey } from './autonomy/api-platform';
+export { automationStore } from './autonomy/automation';
+export { collaborationStore } from './autonomy/collaboration';
+export * from './autonomy/types';

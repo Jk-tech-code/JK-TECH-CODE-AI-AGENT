@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Download, FileText, Hash, MessageSquare, Pencil, Pin, Plus, Search,
+  Bot, Download, FileText, Hash, MessageSquare, Pencil, Pin, Plus, Search,
   Settings, Star, Trash2, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 export interface SidebarConversation {
   id: string;
@@ -318,20 +319,20 @@ function SidebarBody({
 
       {/* Footer */}
       <div className="space-y-0.5 border-t border-[var(--border-color)] p-2">
-        <button
-          type="button"
+        <Link
+          href="/autonomy"
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] text-[var(--text-muted-50)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
         >
-          <FileText className="h-4 w-4" />
-          Recent Files
-        </button>
-        <button
-          type="button"
+          <Bot className="h-4 w-4" />
+          Autonomy
+        </Link>
+        <Link
+          href="/settings/ai"
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] text-[var(--text-muted-50)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
         >
           <Settings className="h-4 w-4" />
           Settings
-        </button>
+        </Link>
       </div>
     </div>
   );
