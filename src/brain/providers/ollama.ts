@@ -40,6 +40,8 @@ export interface OllamaOptions {
   maxTokens?: number;
   /** qwen3 derivative models: set false to disable hidden "thinking". */
   thinking?: boolean;
+  /** Per-request model override (from user settings); defaults to env model. */
+  model?: string;
 }
 
 export interface OllamaModelInfo {
@@ -99,9 +101,11 @@ export async function* streamChatRaw(
   options: OllamaOptions = {},
 ): AsyncGenerator<{ thinking: string; content: string; done: boolean }, void, undefined> {
   const cfg = readConfig();
+  // Per-request model override (from user settings) wins over the env default.
+  const model = options.model?.trim() ? options.model.trim() : cfg.model;
 
   const payload = {
-    model: cfg.model,
+    model,
     messages,
     stream: true,
     options: {
@@ -132,7 +136,7 @@ export async function* streamChatRaw(
         const text = await res.text().catch(() => '');
         if (res.status === 404 || /model.*not found/i.test(text)) {
           throw new ModelNotFoundError(
-            `The model "${cfg.model}" is not installed locally. Run: ollama pull ${cfg.model}`,
+            `The model "${model}" is not installed locally. Run: ollama pull ${model}`,
           );
         }
         throw new OllamaUnavailableError(`Ollama returned HTTP ${res.status}.`);
@@ -187,10 +191,11 @@ export async function chatComplete(
   options: OllamaOptions = {},
 ): Promise<{ content: string; thinking: string; modelUsed: string; latencyMs: number }> {
   const cfg = readConfig();
+  const model = options.model?.trim() ? options.model.trim() : cfg.model;
   const start = Date.now();
 
   const payload = {
-    model: cfg.model,
+    model,
     messages,
     stream: false,
     options: {
@@ -219,7 +224,7 @@ export async function chatComplete(
         const text = await res.text().catch(() => '');
         if (res.status === 404 || /model.*not found/i.test(text)) {
           throw new ModelNotFoundError(
-            `The model "${cfg.model}" is not installed locally. Run: ollama pull ${cfg.model}`,
+            `The model "${model}" is not installed locally. Run: ollama pull ${model}`,
           );
         }
         throw new OllamaUnavailableError(`Ollama returned HTTP ${res.status}.`);
@@ -229,7 +234,7 @@ export async function chatComplete(
       return {
         content: json.message?.content ?? '',
         thinking: json.message?.thinking ?? '',
-        modelUsed: json.model || cfg.model,
+        modelUsed: json.model || model,
         latencyMs: Date.now() - start,
       };
     } catch (err) {
@@ -295,3 +300,91 @@ export function getConfiguredModel(): string {
 export function getOllamaHost(): string {
   return readConfig().host;
 }
+
+/**
+ * OllamaProvider — local-development LLM backend implementing the shared
+ * `LLMProvider` interface. Wraps the streaming/chat helpers above so the Brain
+ * can select it the same way it selects any cloud provider.
+ */
+import {
+  ProviderError,
+  type LLMCompleteResult,
+  type LLMMessage,
+  type LLMOptions,
+  type LLMProvider,
+  type LLMProviderName,
+  type LLMStreamChunk,
+  type ProviderModelInfo,
+  type ProviderStatus,
+} from './interface';
+
+export class OllamaProvider implements LLMProvider {
+  readonly name: LLMProviderName = 'ollama';
+
+  async check(): Promise<ProviderStatus> {
+    const model = getConfiguredModel();
+    const reachable = await isHealthy();
+    if (!reachable) {
+      return {
+        provider: 'ollama',
+        available: false,
+        model,
+        reason: 'Local AI is currently unavailable. Make sure Ollama is running.',
+      };
+    }
+    return { provider: 'ollama', available: true, model };
+  }
+
+  async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<LLMCompleteResult> {
+    try {
+      const result = await chatComplete(messages, {
+        temperature: options.temperature,
+        topP: options.topP,
+        topK: options.topK,
+        maxTokens: options.maxTokens,
+        thinking: options.thinking,
+      });
+      return {
+        content: result.content,
+        thinking: result.thinking,
+        modelUsed: result.modelUsed,
+        latencyMs: result.latencyMs,
+      };
+    } catch (err) {
+      if (err instanceof ModelNotFoundError) {
+        throw new ProviderError(err.message, false);
+      }
+      throw new ProviderError('Local AI is currently unavailable.', true);
+    }
+  }
+
+  async *stream(messages: LLMMessage[], options: LLMOptions = {}): AsyncGenerator<LLMStreamChunk> {
+    try {
+      for await (const chunk of streamChatRaw(messages, {
+        temperature: options.temperature,
+        topP: options.topP,
+        topK: options.topK,
+        maxTokens: options.maxTokens,
+        thinking: options.thinking,
+      })) {
+        yield {
+          content: chunk.content || undefined,
+          thinking: chunk.thinking || undefined,
+        };
+      }
+    } catch (err) {
+      if (err instanceof ModelNotFoundError) {
+        throw new ProviderError(err.message, false);
+      }
+      throw new ProviderError('Local AI is currently unavailable.', true);
+    }
+  }
+
+  async getInfo(): Promise<ProviderModelInfo> {
+    const models = await listModels().catch(() => []);
+    return { provider: 'ollama', model: getConfiguredModel(), host: getOllamaHost(), models };
+  }
+}
+
+/** Shared singleton — the Brain selects it via `LLM_PROVIDER=ollama`. */
+export const ollamaProvider = new OllamaProvider();

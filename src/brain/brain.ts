@@ -30,7 +30,7 @@ import { reflect } from './reflection';
 import { humanize } from './humanizer';
 import { assembleResponse } from './response';
 import { brainLearning } from './learning';
-import { complete, stream, checkProvider, activeProvider, getConfiguredModel } from './providers/llm';
+import { complete, stream, checkProvider, activeProvider, getConfiguredModel, type LLMProviderName } from './providers/llm';
 import { createLogger } from '@/lib/logging/logger';
 import type { BrainOutput, BrainSettings, RequestContext } from './types';
 
@@ -156,7 +156,8 @@ function settingsError(message: string, retryable = true): BrainOutput {
 export async function brainComplete(req: BrainRequest, hooks?: BrainStreamHooks): Promise<BrainOutput> {
   const start = Date.now();
   const settings = resolveSettings(req.settings);
-  const status = await checkProvider();
+  const provider = (settings.provider as LLMProviderName) || undefined;
+  const status = await checkProvider(provider);
   if (!status.available) {
     return settingsError(status.reason || 'LLM provider unavailable.', true);
   }
@@ -172,6 +173,9 @@ export async function brainComplete(req: BrainRequest, hooks?: BrainStreamHooks)
       topK: plan.topK,
       maxTokens: plan.maxTokens,
       thinking: plan.thinking,
+      provider,
+      model: settings.model || undefined,
+      fallback: settings.fallbackEnabled,
     });
 
     // Verification + reflection + humanization + formatting.
@@ -219,8 +223,9 @@ export async function* brainStream(
 ): AsyncGenerator<{ type: 'status' | 'content' | 'done' | 'error'; value: unknown }, void, undefined> {
   const start = Date.now();
   const settings = resolveSettings(req.settings);
+  const provider = (settings.provider as LLMProviderName) || undefined;
 
-  const status = await checkProvider();
+  const status = await checkProvider(provider);
   if (!status.available) {
     yield { type: 'error', value: { message: status.reason || 'Local AI is currently unavailable.', retryable: true } };
     return;
@@ -243,6 +248,9 @@ export async function* brainStream(
       topK: plan.topK,
       maxTokens: plan.maxTokens,
       thinking: plan.thinking,
+      provider,
+      model: settings.model || undefined,
+      fallback: settings.fallbackEnabled,
     })) {
       if (chunk.thinking) {
         thinking += chunk.thinking;
@@ -286,8 +294,8 @@ export async function* brainStream(
       type: 'done',
       value: {
         content,
-        modelUsed: getConfiguredModel(),
-        provider: activeProvider(),
+        modelUsed: getConfiguredModel(provider),
+        provider: provider || activeProvider(),
         confidence,
         latencyMs: Date.now() - start,
         thinking: thinking.trim() || undefined,

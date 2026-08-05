@@ -14,11 +14,37 @@ import {
 } from 'lucide-react';
 import { DEFAULT_SETTINGS, type BrainSettings } from '@/brain/types';
 
-const MODEL_PRESETS = ['qwen3:4b', 'qwen3:8b', 'qwen3:14b'];
+const PROVIDER_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'gemini', label: 'Gemini (cloud, default)' },
+  { value: 'ollama', label: 'Ollama (local)' },
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'groq', label: 'Groq' },
+  { value: 'openrouter', label: 'OpenRouter' },
+  { value: 'anthropic', label: 'Anthropic Claude' },
+  { value: 'together', label: 'Together AI' },
+];
+
+const MODEL_PRESETS: Record<string, string[]> = {
+  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'],
+  ollama: ['qwen3:4b', 'qwen3:8b', 'qwen3:14b'],
+  openai: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini'],
+  groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it', 'qwen-qwq-32b'],
+  openrouter: ['google/gemini-2.5-flash', 'anthropic/claude-sonnet-4', 'openai/gpt-4o', 'meta-llama/llama-3.3-70b-instruct'],
+  anthropic: ['claude-sonnet-4-20250514', 'claude-3-7-sonnet-20250219', 'claude-3-5-haiku-latest'],
+  together: ['meta-llama/Llama-3.3-70B-Instruct-Turbo', 'Qwen/Qwen2.5-72B-Instruct', 'deepseek-ai/DeepSeek-V3', 'mistralai/Mixtral-8x7B-Instruct-v0.1'],
+};
+
+interface ProviderHealth {
+  provider: string;
+  available: boolean;
+  model: string;
+  reason?: string;
+}
 
 export default function AISettingsPage() {
   const [settings, setSettings] = useState<BrainSettings>(DEFAULT_SETTINGS);
   const [status, setStatus] = useState<{ provider: string; available: boolean; model: string; reason?: string } | null>(null);
+  const [providers, setProviders] = useState<ProviderHealth[]>([]);
   const [installedModels, setInstalledModels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,6 +58,7 @@ export default function AISettingsPage() {
       const data = await res.json();
       setSettings(data.settings);
       setStatus(data.provider);
+      setProviders(Array.isArray(data.providers) ? data.providers : []);
       setInstalledModels((data.models || []).map((m: { name: string }) => m.name));
     } catch {
       toast.error('Could not load AI settings.');
@@ -156,7 +183,7 @@ export default function AISettingsPage() {
             <CardTitle className="flex items-center gap-2">
               <Cpu className="h-4 w-4 text-[var(--accent)]" /> Brain Provider
             </CardTitle>
-            <CardDescription>Local Ollama + Qwen3 by default, with an OpenAI-compatible fallback.</CardDescription>
+            <CardDescription>Pick any supported LLM backend — Gemini in the cloud by default, local Ollama for development, or Groq / OpenRouter / OpenAI / Claude / Together.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--surface)] px-3 py-2.5">
@@ -181,8 +208,10 @@ export default function AISettingsPage() {
                   onChange={(e) => update('model', e.target.value)}
                 />
                 <datalist id="model-presets">
-                  {MODEL_PRESETS.map((m) => <option key={m} value={m} />)}
-                  {installedModels.filter((m) => !MODEL_PRESETS.includes(m)).map((m) => <option key={m} value={m} />)}
+                  {(MODEL_PRESETS[settings.provider] || []).map((m) => <option key={m} value={m} />)}
+                  {installedModels
+                    .filter((m) => !(MODEL_PRESETS[settings.provider] || []).includes(m))
+                    .map((m) => <option key={m} value={m} />)}
                 </datalist>
                 <p className="text-[11px] text-[var(--text-muted-30)]">
                   Installed locally: {installedModels.length > 0 ? installedModels.join(', ') : 'fetching…'}
@@ -196,11 +225,48 @@ export default function AISettingsPage() {
                   value={settings.provider}
                   onChange={(e) => update('provider', e.target.value as BrainSettings['provider'])}
                 >
-                  <option value="ollama">Ollama (local)</option>
-                  <option value="openai">OpenAI-compatible</option>
+                  {PROVIDER_OPTIONS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
                 </select>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* All providers */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-[var(--accent)]" /> Available Providers
+            </CardTitle>
+            <CardDescription>Which backends are configured and reachable. Keys come from your environment (Vercel project settings in production).</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {providers.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted-30)]">Loading provider status…</p>
+            ) : (
+              <ul className="space-y-2">
+                {providers.map((p) => {
+                  const label = PROVIDER_OPTIONS.find((o) => o.value === p.provider)?.label || p.provider;
+                  const active = p.provider === settings.provider;
+                  return (
+                    <li
+                      key={p.provider}
+                      className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${
+                        active ? 'border-[var(--accent)] bg-[var(--surface-accent)]' : 'border-[var(--border-color)] bg-[var(--surface)]'
+                      }`}
+                    >
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${p.available ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                      <span className="truncate text-[var(--text-primary)]">{label}</span>
+                      <span className="ml-auto truncate text-xs text-[var(--text-muted-50)]" title={p.reason || p.model}>
+                        {p.available ? p.model : p.reason || 'Unavailable'}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </CardContent>
         </Card>
 
@@ -289,6 +355,13 @@ export default function AISettingsPage() {
                 <p className="text-xs text-[var(--text-muted-50)]">Stream responses token-by-token with a live cursor.</p>
               </div>
               <Switch checked={settings.streaming !== false} onCheckedChange={(v) => update('streaming', v)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-[var(--text-primary)]">Automatic fallback</p>
+                <p className="text-xs text-[var(--text-muted-50)]">If the selected provider fails (rate limit, outage), retry with the next configured provider automatically.</p>
+              </div>
+              <Switch checked={settings.fallbackEnabled === true} onCheckedChange={(v) => update('fallbackEnabled', v)} />
             </div>
 
             <div className="flex items-center justify-between border-t border-[var(--border-color)] pt-4">

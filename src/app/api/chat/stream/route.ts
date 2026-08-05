@@ -19,6 +19,22 @@ interface AttachmentRef {
 }
 
 /**
+ * Map a client-selected model id to its provider + concrete model name.
+ * Returns null for unknown ids (the stored provider choice is kept).
+ */
+function mapModelToProvider(model: string): { provider: string; model: string } | null {
+  const m = model.toLowerCase();
+  if (m.startsWith('gemini')) return { provider: 'gemini', model };
+  if (m.startsWith('qwen3')) return { provider: 'ollama', model };
+  if (m.startsWith('claude')) return { provider: 'anthropic', model };
+  if (m.startsWith('gpt')) return { provider: 'openai', model };
+  if (m.startsWith('llama') || m.startsWith('gemma') || m.startsWith('qwen-qwq') || m.startsWith('whisper')) {
+    return { provider: 'groq', model };
+  }
+  return null;
+}
+
+/**
  * POST /api/chat/stream
  *
  * Server-Sent Events streaming chat, routed through the Brain.
@@ -109,12 +125,14 @@ export async function POST(request: NextRequest) {
 
     // Accept an explicit model from the client (validated below by the Brain
     // settings resolution — unknown values fall back to the configured model).
-    if (model && typeof model === 'string' && model.startsWith('qwen3')) {
-      settings.model = model;
-    } else if (model && typeof model === 'string' && model !== 'z-ai-default') {
-      // Keep logical cloud-model ids working through the OpenAI-compatible
-      // provider only when explicitly configured for it.
-      settings.provider = 'openai';
+    // Map catalog model ids to their provider so the picker works on Vercel.
+    // Unknown ids leave the stored provider untouched (user choice preserved).
+    if (model && typeof model === 'string' && model !== 'z-ai-default') {
+      const mapped = mapModelToProvider(model);
+      if (mapped) {
+        settings.provider = mapped.provider;
+        settings.model = mapped.model;
+      }
     }
 
     const encoder = new TextEncoder();

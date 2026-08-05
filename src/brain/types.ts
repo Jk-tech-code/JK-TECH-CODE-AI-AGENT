@@ -17,9 +17,9 @@ export type Complexity = 'low' | 'medium' | 'high';
 export type ReasoningLevel = 'low' | 'medium' | 'high';
 
 export interface BrainSettings {
-  /** Provider key: 'ollama' | 'openai'. */
+  /** Provider key: 'gemini' | 'ollama' | 'openai' | 'groq' | 'openrouter' | 'anthropic' | 'together'. */
   provider: string;
-  /** Model name (e.g. 'qwen3:4b'). */
+  /** Model name (e.g. 'gemini-2.5-flash', 'qwen3:4b'). */
   model: string;
   temperature: number;
   topP: number;
@@ -27,6 +27,8 @@ export interface BrainSettings {
   topK: number;
   maxTokens: number;
   streaming: boolean;
+  /** Automatic fallback to the next provider on retryable failure. */
+  fallbackEnabled: boolean;
   memoryEnabled: boolean;
   knowledgeEnabled: boolean;
   reasoningLevel: ReasoningLevel;
@@ -36,13 +38,14 @@ export interface BrainSettings {
 }
 
 export const DEFAULT_SETTINGS: BrainSettings = {
-  provider: 'ollama',
-  model: 'qwen3:4b',
+  provider: 'gemini',
+  model: 'gemini-2.5-flash',
   temperature: 0.7,
   topP: 0.9,
   topK: 0,
   maxTokens: 1024,
   streaming: true,
+  fallbackEnabled: false,
   memoryEnabled: true,
   knowledgeEnabled: true,
   reasoningLevel: 'medium',

@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { loadSettings, saveSettings } from '@/brain/settings';
-import { checkProvider, modelInfo } from '@/brain/providers/llm';
+import {
+  checkProvider,
+  modelInfo,
+  availableProviders,
+  getEnvDiagnostics,
+  validateConfig,
+} from '@/brain/providers/llm';
+import { LLM_PROVIDER_NAMES } from '@/brain/providers/interface';
 import { DEFAULT_SETTINGS } from '@/brain/types';
 
 /** GET /api/ai/settings — the caller's stored Brain settings + provider status. */
@@ -10,8 +17,18 @@ export async function GET() {
   const settings = await loadSettings(user?.id);
   const status = await checkProvider();
   const info = await modelInfo();
+  const providers = await availableProviders().catch(() => []);
 
-  return NextResponse.json({ settings, defaults: DEFAULT_SETTINGS, provider: status, models: info.models, host: info.host });
+  return NextResponse.json({
+    settings,
+    defaults: DEFAULT_SETTINGS,
+    provider: status,
+    providers,
+    models: info.models,
+    host: info.host,
+    diagnostics: getEnvDiagnostics(),
+    configErrors: validateConfig().errors,
+  });
 }
 
 /** POST /api/ai/settings — persist partial settings (requires auth). */
@@ -25,6 +42,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as Record<string, unknown>;
     const allowed: Array<keyof typeof DEFAULT_SETTINGS> = [
       'provider', 'model', 'temperature', 'topP', 'topK', 'maxTokens', 'streaming',
+      'fallbackEnabled',
       'memoryEnabled', 'knowledgeEnabled', 'reasoningLevel', 'responseLength',
       'systemPrompt', 'personality',
     ];
@@ -41,8 +59,9 @@ export async function POST(request: NextRequest) {
     if (typeof partial.maxTokens === 'number') partial.maxTokens = Math.min(32768, Math.max(64, Math.floor(partial.maxTokens)));
     if (partial.reasoningLevel && !['low', 'medium', 'high'].includes(partial.reasoningLevel)) delete partial.reasoningLevel;
     if (partial.responseLength && !['short', 'balanced', 'detailed'].includes(partial.responseLength)) delete partial.responseLength;
-    if (partial.provider && !['ollama', 'openai'].includes(partial.provider)) delete partial.provider;
+    if (partial.provider && typeof partial.provider === 'string' && !LLM_PROVIDER_NAMES.includes(partial.provider as never)) delete partial.provider;
     if (typeof partial.streaming === 'boolean') partial.streaming = partial.streaming;
+    if (typeof partial.fallbackEnabled === 'boolean') partial.fallbackEnabled = partial.fallbackEnabled;
     if (typeof partial.memoryEnabled === 'boolean') partial.memoryEnabled = partial.memoryEnabled;
     if (typeof partial.knowledgeEnabled === 'boolean') partial.knowledgeEnabled = partial.knowledgeEnabled;
     if (typeof partial.systemPrompt === 'string') partial.systemPrompt = partial.systemPrompt.slice(0, 2000);

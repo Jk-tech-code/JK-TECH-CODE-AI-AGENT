@@ -1,50 +1,54 @@
 /**
- * OpenAI-compatible fallback provider for the Brain.
+ * OpenAI provider — native OpenAI Chat Completions for the Brain.
  *
- * Delegates to the existing AI SDK provider (`@/lib/ai/provider`) so the Brain
- * can keep working when `LLM_PROVIDER=openai` or Ollama is intentionally
- * bypassed. This preserves all pre-existing cloud capabilities.
+ * Implements the shared `LLMProvider` interface through the OpenAI-compatible
+ * core (`openai-compat-core.ts`), which provides streaming (SSE), retries,
+ * timeouts and friendly error mapping. This module keeps the historical
+ * `getOpenAIResult` / `getOpenAIStream` exports so any existing callers keep
+ * working unchanged.
+ *
+ * Configured via:
+ *   LLM_PROVIDER=openai
+ *   OPENAI_API_KEY=<key>
+ *   OPENAI_MODEL=gpt-4.1   (default)
+ *   OPENAI_BASE_URL=https://api.openai.com/v1   (optional override)
+ *   OPENAI_TIMEOUT_MS / OPENAI_MAX_RETRIES   (optional)
  */
-import { getModel, resolveModelAlias, DEFAULT_MODEL_ID } from '@/lib/ai/provider';
-import { generateText, streamText } from 'ai';
-import type { LLMCompleteResult, LLMStreamChunk, LLMOptions } from './llm';
+import {
+  createOpenAICompatProvider,
+  chatComplete,
+  chatStream,
+  getCompatConfiguredModel,
+  getCompatHost,
+  type OpenAICompatProviderName,
+} from './openai-compat-core';
+import type { LLMCompleteResult, LLMMessage, LLMOptions, LLMStreamChunk } from './interface';
 
+const PROVIDER_NAME: OpenAICompatProviderName = 'openai';
+
+/** Shared singleton — the Brain selects it via `LLM_PROVIDER=openai`. */
+export const openAICompatProvider = createOpenAICompatProvider(PROVIDER_NAME);
+
+export function getOpenAIConfiguredModel(): string {
+  return getCompatConfiguredModel(PROVIDER_NAME);
+}
+
+export function getOpenAIHost(): string {
+  return getCompatHost(PROVIDER_NAME);
+}
+
+/** Legacy export: non-streaming completion (backwards compatible). */
 export default async function getOpenAIResult(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   options: LLMOptions,
 ): Promise<LLMCompleteResult> {
-  const start = Date.now();
-  const modelId = resolveModelAlias(DEFAULT_MODEL_ID);
-  const result = await generateText({
-    model: getModel(modelId),
-    messages,
-    temperature: options.temperature ?? 0.7,
-    maxOutputTokens: options.maxTokens,
-  });
-  return {
-    content: result.text || '',
-    thinking: result.reasoningText || '',
-    modelUsed: modelId,
-    latencyMs: Date.now() - start,
-  };
+  return chatComplete(PROVIDER_NAME, messages, options);
 }
 
+/** Legacy export: streaming completion (backwards compatible). */
 export async function* getOpenAIStream(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   options: LLMOptions,
 ): AsyncGenerator<LLMStreamChunk> {
-  const modelId = resolveModelAlias(DEFAULT_MODEL_ID);
-  const system = messages.find((m) => m.role === 'system')?.content;
-  const chat = messages.filter((m) => m.role !== 'system');
-
-  const result = streamText({
-    model: getModel(modelId),
-    ...(system ? { system } : {}),
-    messages: chat,
-    temperature: options.temperature ?? 0.7,
-  });
-
-  for await (const delta of result.textStream) {
-    if (delta) yield { content: delta };
-  }
+  yield* chatStream(PROVIDER_NAME, messages as LLMMessage[], options);
 }

@@ -1,204 +1,144 @@
 /**
  * Provider selection layer for the JK-TECH-CODE Brain.
  *
- * Picks the active LLM backend from `LLM_PROVIDER`:
- *   • "ollama" (default) — local Ollama + Qwen3. Falls back gracefully to the
- *     existing OpenAI-compatible provider only when a model key is configured,
- *     otherwise surfaces a friendly "Local AI unavailable" error.
- *   • "openai" — the pre-existing OpenAI-compatible provider.
+ * This module is a thin facade over the `ProviderManager` — the Brain only
+ * ever imports from here, never from individual provider implementations.
  *
- * Every method is non-throwing and returns structured results so the Brain
- * pipeline can present a friendly message and a Retry affordance without
- * ever crashing the application.
+ * Supported providers (selected via `LLM_PROVIDER`):
+ *   • "gemini"     (default) — Google Gemini, works on Vercel and any
+ *     serverless runtime. Configured with GEMINI_API_KEY + GEMINI_MODEL.
+ *   • "ollama"     — local Ollama + Qwen3 for local development.
+ *   • "openai"     — OpenAI (native).
+ *   • "groq"       — Groq (fast inference).
+ *   • "openrouter" — OpenRouter unified gateway.
+ *   • "anthropic"  — Anthropic Claude.
+ *   • "together"   — Together AI.
+ *
+ * Automatic fallback between providers is available and configurable via
+ * `LLM_FALLBACK_ENABLED` / `LLM_FALLBACK_ORDER` (or the per-user settings
+ * toggle). Methods are non-throwing in a controlled way and return structured
+ * results so the Brain pipeline can present a friendly message and a Retry
+ * affordance without ever crashing.
  */
 import {
-  streamChatRaw,
-  chatComplete,
+  providerManager,
   isHealthy,
-  listModels,
   isModelAvailable,
-  getConfiguredModel,
+  listModels,
   getOllamaHost,
-  OllamaUnavailableError,
-  ModelNotFoundError,
-} from './ollama';
-import { createLogger } from '@/lib/logging/logger';
+  isProviderConfigured,
+  PROVIDER_REGISTRY,
+} from './manager';
+import {
+  ProviderError,
+  type LLMCompleteResult,
+  type LLMMessage,
+  type LLMOptions,
+  type LLMProviderName,
+  type LLMStreamChunk,
+  type ProviderStatus,
+} from './interface';
 
-const llmLogger = createLogger('brain:llm');
+/** Supported provider keys. */
+export type { LLMProviderName } from './interface';
+export { LLM_PROVIDER_NAMES, isLLMProviderName } from './interface';
 
-export type LLMProviderName = 'ollama' | 'openai';
-
-export interface ProviderStatus {
-  provider: LLMProviderName;
-  available: boolean;
-  model: string;
-  /** Human-friendly reason when unavailable. */
-  reason?: string;
-}
-
-/** Streaming chunk exposed uniformly to the Brain. */
-export interface LLMStreamChunk {
-  /** Actual final content to show the user. */
-  content?: string;
-  /** Hidden/orchestrator-level thinking (shown as "Thinking…"). */
-  thinking?: string;
-}
-
-export interface LLMCompleteResult {
-  content: string;
-  thinking: string;
-  modelUsed: string;
-  latencyMs: number;
-}
-
-export interface LLMOptions {
-  temperature?: number;
-  topP?: number;
-  /** Top-K sampling; 0 disables. */
-  topK?: number;
-  maxTokens?: number;
-  thinking?: boolean;
-}
-
-export class ProviderError extends Error {
-  constructor(message: string, public retryable: boolean = true) {
-    super(message);
-    this.name = 'ProviderError';
-  }
-}
-
-/** Returns the active provider name (env-driven). */
+/** Returns the active provider name (env-driven; default "gemini"). */
 export function activeProvider(): LLMProviderName {
-  return (process.env.LLM_PROVIDER || 'ollama').toLowerCase() === 'openai'
-    ? 'openai'
-    : 'ollama';
+  return providerManager.activeProvider();
 }
 
-/** Status of the active provider — safe to call repeatedly. */
-export async function checkProvider(): Promise<ProviderStatus> {
-  const provider = activeProvider();
-
-  if (provider === 'ollama') {
-    const model = getConfiguredModel();
-    const reachable = await isHealthy();
-    if (!reachable) {
-      return {
-        provider,
-        available: false,
-        model,
-        reason: 'Local AI is currently unavailable. Make sure Ollama is running.',
-      };
-    }
-    return { provider, available: true, model };
-  }
-
-  // openai (compat) provider
-  const model = process.env.OPENAI_MODEL || 'gpt-4.1';
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    return { provider, available: false, model, reason: 'OPENAI_API_KEY is not configured.' };
-  }
-  return { provider, available: true, model };
+/** The active provider instance. */
+export function getProvider() {
+  return providerManager.resolveProvider();
 }
 
-/** Non-streaming completion through the active provider. */
+/** Status of one provider (defaults to the active one) — safe to call repeatedly. */
+export async function checkProvider(provider?: LLMProviderName): Promise<ProviderStatus> {
+  return providerManager.checkProvider(provider);
+}
+
+/** Non-streaming completion with optional cross-provider fallback. */
 export async function complete(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  messages: LLMMessage[],
   options: LLMOptions = {},
 ): Promise<LLMCompleteResult> {
-  const provider = activeProvider();
-
-  if (provider === 'ollama') {
-    try {
-      const result = await chatComplete(messages, {
-        temperature: options.temperature,
-        topP: options.topP,
-        topK: options.topK,
-        maxTokens: options.maxTokens,
-        thinking: options.thinking,
-      });
-      return {
-        content: result.content,
-        thinking: result.thinking,
-        modelUsed: result.modelUsed,
-        latencyMs: result.latencyMs,
-      };
-    } catch (err) {
-      if (err instanceof ModelNotFoundError) {
-        throw new ProviderError(err.message, false);
-      }
-      if (err instanceof OllamaUnavailableError) {
-        throw new ProviderError('Local AI is currently unavailable.', true);
-      }
-      throw new ProviderError('Local AI is currently unavailable.', true);
-    }
-  }
-
-  // openai fallback
-  // Lazy-import to avoid loading provider module when unused.
-  try {
-    const { default: getOpenAIResult } = await import('./openai-compat');
-    return await getOpenAIResult(messages, options);
-  } catch {
-    throw new ProviderError('LLM provider is not configured.', true);
-  }
+  return providerManager.complete(messages, options);
 }
 
 /**
- * Stream a completion through the active provider.
- * Yields `{ content? }` and `{ thinking? }` chunks in real time.
+ * Stream a completion. Yields `{ content? }` and `{ thinking? }` chunks in
+ * real time. Falls back to the next provider only before the first chunk.
  */
 export async function* stream(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  messages: LLMMessage[],
   options: LLMOptions = {},
 ): AsyncGenerator<LLMStreamChunk> {
-  const provider = activeProvider();
-
-  if (provider === 'ollama') {
-    try {
-      for await (const chunk of streamChatRaw(messages, {
-        temperature: options.temperature,
-        topP: options.topP,
-        topK: options.topK,
-        maxTokens: options.maxTokens,
-        thinking: options.thinking,
-      })) {
-        yield {
-          content: chunk.content || undefined,
-          thinking: chunk.thinking || undefined,
-        };
-      }
-      return;
-    } catch (err) {
-      if (err instanceof ModelNotFoundError) {
-        throw new ProviderError(err.message, false);
-      }
-      throw new ProviderError('Local AI is currently unavailable.', true);
-    }
-  }
-
-  // openai fallback stream
-  try {
-    const { getOpenAIStream } = await import('./openai-compat');
-    yield* getOpenAIStream(messages, options);
-  } catch {
-    throw new ProviderError('LLM provider is not configured.', true);
-  }
+  yield* providerManager.stream(messages, options);
 }
 
 /** Model metadata helpers, provider-agnostic. */
-export async function modelInfo() {
-  if (activeProvider() === 'ollama') {
-    return { provider: 'ollama' as const, model: getConfiguredModel(), host: getOllamaHost(), models: await listModels() };
-  }
-  return { provider: 'openai' as const, model: process.env.OPENAI_MODEL || 'gpt-4.1', host: undefined, models: [] };
+export async function modelInfo(provider?: LLMProviderName): Promise<import('./interface').ProviderModelInfo> {
+  return providerManager.modelInfo(provider);
 }
 
 /** Best-effort gather of whether streaming is currently viable. */
 export async function streamingAvailable(): Promise<boolean> {
-  const status = await checkProvider();
-  return status.available;
+  return providerManager.streamingAvailable();
 }
 
-export { isHealthy, isModelAvailable, listModels, getConfiguredModel, getOllamaHost };
+/** The configured model for one provider (defaults to the active one). */
+export function getConfiguredModel(provider?: LLMProviderName): string {
+  return providerManager.getConfiguredModel(provider);
+}
+
+/** Where a provider is hosted (base URL / host). */
+export function getProviderHost(provider?: LLMProviderName): string | undefined {
+  return providerManager.getProviderHost(provider);
+}
+
+// ─── Fallback + diagnostics (Provider Manager surface) ───
+
+/** Whether automatic cross-provider fallback is enabled (env-driven). */
+export function fallbackEnabled(): boolean {
+  return providerManager.fallbackEnabled();
+}
+
+/** The ordered fallback chain (env-driven, with a sane default). */
+export function fallbackOrder(): LLMProviderName[] {
+  return providerManager.fallbackOrder();
+}
+
+/** Ordered list of providers to try for a request starting at `requested`. */
+export function buildFallbackChain(requested?: LLMProviderName, fallback?: boolean): LLMProviderName[] {
+  return providerManager.buildChain(requested, fallback);
+}
+
+/** Health status of every registered provider. */
+export function availableProviders() {
+  return providerManager.availableProviders();
+}
+
+/** Environment diagnostics — presence booleans only, never values. */
+export function getEnvDiagnostics() {
+  return providerManager.getEnvDiagnostics();
+}
+
+/** Startup configuration validation — clear errors, never throws. */
+export function validateConfig(): { ok: boolean; errors: string[] } {
+  return providerManager.validateConfig();
+}
+
+export { isProviderConfigured, PROVIDER_REGISTRY, providerManager };
+
+// ─── Backwards-compatible re-exports (Ollama helpers used by integrations) ───
+export { isHealthy, isModelAvailable, listModels, getOllamaHost };
+export { ProviderError };
+export type {
+  LLMStreamChunk,
+  LLMCompleteResult,
+  LLMOptions,
+  ProviderStatus,
+  LLMMessage,
+} from './interface';
 export type { OllamaModelInfo, OllamaChatMessage } from './ollama';

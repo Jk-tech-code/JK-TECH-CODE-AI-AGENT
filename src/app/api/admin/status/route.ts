@@ -6,9 +6,9 @@ import {
   modelInfo,
   isHealthy,
   listModels,
-  getConfiguredModel,
   getOllamaHost,
 } from '@/brain/providers/llm';
+import { getConfiguredModel as getOllamaConfiguredModel } from '@/brain/providers/ollama';
 import { db } from '@/lib/db';
 import { createLogger } from '@/lib/logging/logger';
 
@@ -40,7 +40,7 @@ export async function GET() {
       ollama: {
         healthy: ollamaHealthy,
         host: getOllamaHost(),
-        configuredModel: getConfiguredModel(),
+        configuredModel: getOllamaConfiguredModel(),
         installedModels: models.map((m) => m.name),
         models,
       },
