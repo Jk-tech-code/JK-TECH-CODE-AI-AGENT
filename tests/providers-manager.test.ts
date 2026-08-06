@@ -6,8 +6,8 @@ vi.mock('@/lib/logging/logger', () => ({
 
 vi.mock('@/lib/core/search', () => {
   const topResults = vi.fn(async () => [
-    { title: 'T1', url: 'https://example.com/1', snippet: 'First result snippet.', rank: 0.95 },
-    { title: 'T2', url: 'https://example.com/2', snippet: 'Second result snippet.', rank: 0.8 },
+    { title: 'T1', url: 'https://example.com/1', snippet: 'The first search result snippet describes the key finding in detail.', rank: 0.95 },
+    { title: 'T2', url: 'https://example.com/2', snippet: 'The second result snippet covers supporting evidence and context.', rank: 0.8 },
   ]);
   return {
     SearchAggregator: class {
@@ -50,6 +50,9 @@ afterEach(() => {
 });
 
 const msg = [{ role: 'user' as const, content: 'What is the capital of France?' }];
+// Research-style query — the only path that actually triggers web search under
+// the intent-gated Brain (writing / QA / etc. answer directly).
+const researchMsg = [{ role: 'user' as const, content: 'What are the latest trends in artificial intelligence?' }];
 
 function clearProviderKeys() {
   for (const n of ['TAVILY_API_KEY', 'SERPAPI_API_KEY', 'LLM_PROVIDER', 'LLM_FALLBACK_ORDER', 'LLM_FALLBACK_ENABLED', 'LLM_TIMEOUT_MS']) {
@@ -87,7 +90,7 @@ describe('Provider Manager — complete / stream via search engine', () => {
   it('completes from search evidence', async () => {
     clearProviderKeys();
     process.env.TAVILY_API_KEY = 'tvly-test';
-    const result = await complete(msg, { maxTokens: 200 });
+    const result = await complete(researchMsg, { maxTokens: 200 });
     expect(result.content.length).toBeGreaterThan(0);
     expect(result.modelUsed).toBe('search-engine');
     expect(result.thinking.length).toBeGreaterThan(0);
@@ -97,15 +100,27 @@ describe('Provider Manager — complete / stream via search engine', () => {
     clearProviderKeys();
     process.env.TAVILY_API_KEY = 'tvly-test';
     const chunks: string[] = [];
-    for await (const chunk of stream(msg, { maxTokens: 200 })) {
+    for await (const chunk of stream(researchMsg, { maxTokens: 200 })) {
       if (chunk.content) chunks.push(chunk.content);
     }
-    expect(chunks.join('')).toContain('example.com');
+    // Evidence-derived prose is present (no source URLs surface by default).
+    expect(chunks.join('').length).toBeGreaterThan(0);
+    expect(chunks.join('')).not.toContain('example.com');
+    expect(chunks.join('')).toContain('snippet');
   });
 
   it('throws a ProviderError when no search key is configured', async () => {
     clearProviderKeys();
-    await expect(complete(msg)).rejects.toThrow('search');
+    await expect(complete(researchMsg)).rejects.toThrow('search');
+  });
+
+  it('surfaces sources only when the user explicitly requests them', async () => {
+    clearProviderKeys();
+    process.env.TAVILY_API_KEY = 'tvly-test';
+    const ask = [{ role: 'user' as const, content: 'Research the latest AI trends and show me your sources.' }];
+    const withSources = await complete(ask, { maxTokens: 200 });
+    expect(withSources.content).toContain('**Sources**');
+    expect(withSources.content).toContain('example.com');
   });
 
   it('applies a global LLM_TIMEOUT_MS safety net', async () => {

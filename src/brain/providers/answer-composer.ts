@@ -19,6 +19,7 @@
  * links live in a final Sources list.
  */
 import type { ScoredSearchResult } from '@/lib/core/types';
+import { composeContent } from './content-engine';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Evidence extraction
@@ -254,8 +255,11 @@ export function detectIntent(query: string): Intent {
   }
 
   // Planning: building a tangible artifact/business.
+  const barePlan =
+    /(?<!business |marketing |content |strategic |action |career |financial |social media |seo |blog |study |lesson |writing |communication |project |personal |event |launch |training |hiring |employee |payroll |safety |contingency |succession |exit |emergency |concept |expansion |growth |budget |restaurant |workforce |transition |brand )(?:\bplan\b(?!s\b)\s+(?:to|a|an|the|for|on)|\bplanning\s+(?:to\b|(?:a|an|the)\b)|\bhow\s+(?:do|can|should)\s+(?:i|we)\s+plan\b)/;
   if (
-    /\b(plan|roadmap|strategy|phase)\b/.test(q) ||
+    barePlan.test(q) ||
+    /\b(roadmap|strategy)\b/.test(q) ||
     /\b(build|start|launch|create|set up|setup)\b.*\b(website|web ?app|app|application|saas|business|startup|product|blog|store|shop|e-?commerce|portfolio|company|restaurant|agency)\b/.test(q) ||
     /^(how (do|can|should) i (build|start|make|create|launch|plan))\b/.test(q)
   ) {
@@ -293,8 +297,8 @@ export function detectIntent(query: string): Intent {
 
   // Generic content creation (essays, posts, letters, scripts, proposals, docs…).
   if (
-    /\b(draft|write|compose|generate|create|produce|prepare|outline)\b.*\b(essay|article|blog|post|linkedin|caption|tweet|status|letter|cover letter|story|script|proposal|marketing|seo|seo copy|product description|documentation|agenda|report|resume|cv|job application|interview|introduction|message|reply|review|testimonial|bio|slogan|tagline|headline|landing page|email copy|newsletter)\b/.test(q) ||
-    /^(write|draft|compose|generate|create|produce|prepare)\s+(me\s+)?(a |an |the )?\b(essay|article|blog|post|letter|story|script|proposal|report|resume|cv|bio|agenda|email)\b/.test(q)
+    /\b(draft|write|compose|generate|create|produce|prepare|outline)\b.*\b(essay|article|blog|post|linkedin|caption|tweet|status|letter|cover letter|story|script|proposal|plan|marketing|seo|seo copy|product description|documentation|agenda|report|resume|cv|job application|interview|introduction|message|reply|review|testimonial|bio|slogan|tagline|headline|landing page|email copy|newsletter)\b/.test(q) ||
+    /^(write|draft|compose|generate|create|produce|prepare)\s+(me\s+)?(a |an |the )?\b(essay|article|blog|post|letter|story|script|proposal|plan|report|resume|cv|bio|agenda|email)\b/.test(q)
   ) {
     return 'writing';
   }
@@ -1052,104 +1056,7 @@ function composeEmail(analysis: QueryAnalysis): string {
 }
 
 function composeWriting(analysis: QueryAnalysis): string {
-  const subject = analysis.subject || 'your topic';
-  const q = analysis.raw.toLowerCase();
-
-  if (/\b(linkedin)\b/.test(q)) {
-    return [
-      `How ${cap(subject)} changed the way I work`,
-      '',
-      'A quick story from the field: the difference between talking about a result and actually delivering it comes down to a few small, repeatable choices. Here is what has held up for me:',
-      '',
-      '• Start with the outcome, not the activity. Know exactly what "done" looks like before the first step.',
-      '• Do the hard version first — the version you would not show anyone. Speed comes from iteration, not inspiration.',
-      '• Share the numbers. A claim without a figure is just an opinion.',
-      '',
-      'What is one small change you have made this quarter that moved the needle?',
-      '',
-      '#Leadership #Productivity #Growth',
-    ].join('\n');
-  }
-
-  if (/\b(caption|instagram)\b/.test(q)) {
-    return [
-      `The thing nobody tells you about ${subject}?`,
-      '',
-      'It takes longer than you think, and the first version is never the one you post. But every rep makes the next one smoother.',
-      '',
-      'Small steps, done consistently, compound faster than any shortcut.',
-      '',
-      'Save this for when you need the reminder.',
-    ].join('\n');
-  }
-
-  if (/\b(tweet|twitter|thread)\b/.test(q)) {
-    return [
-      `Hot take on ${subject}:`,
-      '',
-      'Most advice on this is optimized for looking smart, not for getting results.',
-      '',
-      'Do the boring, consistent thing for 90 days. Come back and tell me what happened.',
-    ].join('\n');
-  }
-
-  if (/\b(cover letter)\b/.test(q)) {
-    return [
-      `**Re: Application — [Role] at [Company]**`,
-      '',
-      'Dear Hiring Team,',
-      '',
-      `I am writing to apply for the [Role] position at [Company]. I have been following ${subject} closely, and your team\'s approach to it aligns directly with how I like to work.`,
-      '',
-      'In my most recent role, I delivered [quantified achievement] by [approach]. That experience taught me that the difference between good and great execution is [lesson].',
-      '',
-      'I would welcome the chance to bring that same focus to [Company]. I have attached my resume and would be glad to speak at your convenience.',
-      '',
-      'Best regards,',
-      '[Your Name]',
-      '[Phone] · [Email]',
-    ].join('\n');
-  }
-
-  if (/\b(resume|cv)\b/.test(q)) {
-    return [
-      `**Resume / CV Draft**`,
-      '',
-      '**Summary**',
-      `Professional focused on ${subject}, with a track record of delivering [quantified result] and driving [outcome]. Strong communicator who turns ambiguity into clear, executed plans.`,
-      '',
-      '**Experience**',
-      '• [Role] — [Company], [Dates]: Delivered [quantified achievement] by [action].',
-      '• [Role] — [Company], [Dates]: Led [initiative], improving [metric] by [X]%.',
-      '',
-      '**Skills**',
-      '• [Skill 1] · [Skill 2] · [Skill 3]',
-      '',
-      '**Education**',
-      '• [Degree], [Institution]',
-    ].join('\n');
-  }
-
-  // General article / blog / essay / proposal / report / story draft.
-  return [
-    `**${cap(subject)}**`,
-    '',
-    `The one thing most people get wrong about ${subject} is treating it as a single event instead of a process. The strongest outcomes come from a clear goal, honest feedback, and steady iteration — not from any single clever move.`,
-    '',
-    '**Why this matters**',
-    `Decisions about ${subject} compound. Getting the fundamentals right early saves far more time than fixing symptoms later, and it is the difference between progress and constant firefighting.`,
-    '',
-    '**What to focus on**',
-    '• Define what success looks like in concrete, measurable terms before doing anything else.',
-    '• Do the smallest version that produces a real outcome, then build from what you learn.',
-    '• Collect evidence early — actual numbers and real feedback beat opinions every time.',
-    '',
-    '**The common trap**',
-    'Chasing polish before proving the core idea works. Get the substance right first; the finish can wait.',
-    '',
-    '**Take the next step**',
-    `Pick the single most useful action for ${subject} and do it today. Progress is the only real strategy.`,
-  ].join('\n');
+  return composeContent(analysis);
 }
 
 function composeBrainstorm(analysis: QueryAnalysis): string {
