@@ -1,7 +1,6 @@
 import { config } from '@/lib/config';
 
 const LLM_ROUTER_URL = config.services.llmRouter;
-const JWT_SECRET = config.jwt.secret;
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -60,7 +59,7 @@ async function fetchApi<T>(path: string, options: RequestInit = {}): Promise<T> 
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${JWT_SECRET}`,
+      Authorization: `Bearer ${config.jwt.secret}`,
       ...options.headers,
     },
   });

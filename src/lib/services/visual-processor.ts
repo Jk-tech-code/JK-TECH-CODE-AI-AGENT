@@ -1,7 +1,6 @@
 import { config } from '@/lib/config';
 
 const VISUAL_PROCESSOR_URL = config.services.visualProcessor;
-const JWT_SECRET = config.jwt.secret;
 
 interface VisualGenerationRequest {
   prompt: string;
