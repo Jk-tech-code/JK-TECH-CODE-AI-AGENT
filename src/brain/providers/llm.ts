@@ -1,31 +1,19 @@
 /**
- * Provider selection layer for the JK-TECH-CODE Brain.
+ * Generation selection layer for the JK-TECH-CODE Brain.
  *
  * This module is a thin facade over the `ProviderManager` — the Brain only
  * ever imports from here, never from individual provider implementations.
  *
- * Supported providers (selected via `LLM_PROVIDER`):
- *   • "gemini"     (default) — Google Gemini, works on Vercel and any
- *     serverless runtime. Configured with GEMINI_API_KEY + GEMINI_MODEL.
- *   • "ollama"     — local Ollama + Qwen3 for local development.
- *   • "openai"     — OpenAI (native).
- *   • "groq"       — Groq (fast inference).
- *   • "openrouter" — OpenRouter unified gateway.
- *   • "anthropic"  — Anthropic Claude.
- *   • "together"   — Together AI.
+ * The Brain uses a single deterministic engine: the Search Engine
+ * (`search-engine.ts`). It answers by searching the web, ranking sources, and
+ * assembling an evidence-based response — no external LLM is called.
  *
- * Automatic fallback between providers is available and configurable via
- * `LLM_FALLBACK_ENABLED` / `LLM_FALLBACK_ORDER` (or the per-user settings
- * toggle). Methods are non-throwing in a controlled way and return structured
- * results so the Brain pipeline can present a friendly message and a Retry
- * affordance without ever crashing.
+ * Methods keep the surface the Brain and its consumers already rely on
+ * (`complete`, `stream`, `checkProvider`, `activeProvider`, `getConfiguredModel`,
+ * diagnostics, …) so the rest of the app is unchanged.
  */
 import {
   providerManager,
-  isHealthy,
-  isModelAvailable,
-  listModels,
-  getOllamaHost,
   isProviderConfigured,
   PROVIDER_REGISTRY,
 } from './manager';
@@ -39,26 +27,26 @@ import {
   type ProviderStatus,
 } from './interface';
 
-/** Supported provider keys. */
+/** Supported engine keys. */
 export type { LLMProviderName } from './interface';
 export { LLM_PROVIDER_NAMES, isLLMProviderName } from './interface';
 
-/** Returns the active provider name (env-driven; default "gemini"). */
+/** Returns the active engine name ("search"). */
 export function activeProvider(): LLMProviderName {
   return providerManager.activeProvider();
 }
 
-/** The active provider instance. */
+/** The active engine instance. */
 export function getProvider() {
   return providerManager.resolveProvider();
 }
 
-/** Status of one provider (defaults to the active one) — safe to call repeatedly. */
+/** Status of the engine (defaults to the active one) — safe to call repeatedly. */
 export async function checkProvider(provider?: LLMProviderName): Promise<ProviderStatus> {
   return providerManager.checkProvider(provider);
 }
 
-/** Non-streaming completion with optional cross-provider fallback. */
+/** Non-streaming completion through the search engine. */
 export async function complete(
   messages: LLMMessage[],
   options: LLMOptions = {},
@@ -68,7 +56,7 @@ export async function complete(
 
 /**
  * Stream a completion. Yields `{ content? }` and `{ thinking? }` chunks in
- * real time. Falls back to the next provider only before the first chunk.
+ * real time.
  */
 export async function* stream(
   messages: LLMMessage[],
@@ -77,7 +65,7 @@ export async function* stream(
   yield* providerManager.stream(messages, options);
 }
 
-/** Model metadata helpers, provider-agnostic. */
+/** Model metadata helpers, engine-agnostic. */
 export async function modelInfo(provider?: LLMProviderName): Promise<import('./interface').ProviderModelInfo> {
   return providerManager.modelInfo(provider);
 }
@@ -87,34 +75,32 @@ export async function streamingAvailable(): Promise<boolean> {
   return providerManager.streamingAvailable();
 }
 
-/** The configured model for one provider (defaults to the active one). */
+/** The configured model for the engine. */
 export function getConfiguredModel(provider?: LLMProviderName): string {
   return providerManager.getConfiguredModel(provider);
 }
 
-/** Where a provider is hosted (base URL / host). */
+/** Where the engine is hosted (none — the search APIs are remote). */
 export function getProviderHost(provider?: LLMProviderName): string | undefined {
   return providerManager.getProviderHost(provider);
 }
 
-// ─── Fallback + diagnostics (Provider Manager surface) ───
-
-/** Whether automatic cross-provider fallback is enabled (env-driven). */
+/** Whether automatic cross-provider fallback is enabled (always false now). */
 export function fallbackEnabled(): boolean {
-  return providerManager.fallbackEnabled();
+  return false;
 }
 
-/** The ordered fallback chain (env-driven, with a sane default). */
+/** The engine chain (always just the search engine). */
 export function fallbackOrder(): LLMProviderName[] {
-  return providerManager.fallbackOrder();
+  return ['search'];
 }
 
-/** Ordered list of providers to try for a request starting at `requested`. */
-export function buildFallbackChain(requested?: LLMProviderName, fallback?: boolean): LLMProviderName[] {
-  return providerManager.buildChain(requested, fallback);
+/** Ordered list of engines to try for a request (always the single engine). */
+export function buildFallbackChain(_requested?: LLMProviderName, _fallback?: boolean): LLMProviderName[] {
+  return ['search'];
 }
 
-/** Health status of every registered provider. */
+/** Health status of the registered engine. */
 export function availableProviders() {
   return providerManager.availableProviders();
 }
@@ -131,8 +117,6 @@ export function validateConfig(): { ok: boolean; errors: string[] } {
 
 export { isProviderConfigured, PROVIDER_REGISTRY, providerManager };
 
-// ─── Backwards-compatible re-exports (Ollama helpers used by integrations) ───
-export { isHealthy, isModelAvailable, listModels, getOllamaHost };
 export { ProviderError };
 export type {
   LLMStreamChunk,
@@ -141,4 +125,3 @@ export type {
   ProviderStatus,
   LLMMessage,
 } from './interface';
-export type { OllamaModelInfo, OllamaChatMessage } from './ollama';

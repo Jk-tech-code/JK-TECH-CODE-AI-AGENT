@@ -1,45 +1,22 @@
 /**
- * LLM provider abstraction for the JK-TECH-CODE Brain.
+ * Brain generation abstraction.
  *
- * A provider is any backend that can complete and stream chat messages:
- *   • GeminiProvider    — Google Gemini (cloud; default on Vercel)
- *   • OllamaProvider    — local development (Ollama + Qwen3)
- *   • OpenAICompatProvider — OpenAI (native)
- *   • GroqProvider      — Groq (fast inference, OpenAI-compatible API)
- *   • OpenRouterProvider — OpenRouter (unified gateway, OpenAI-compatible)
- *   • TogetherProvider  — Together AI (OpenAI-compatible)
- *   • AnthropicProvider — Anthropic Claude (Messages API)
- *
- * Every provider is non-throwing in a controlled way: availability is reported
- * via `check()`, and request failures surface as `ProviderError` with a
- * human-friendly message and a `retryable` flag so the Brain can present a
- * friendly message + Retry affordance instead of a blank response.
+ * The Brain no longer talks to external LLM vendors. Instead a single
+ * deterministic engine — the Search Engine — implements this interface.
+ * Keeping the interface lets the Brain pipeline and its consumers stay
+ * unchanged: the Brain calls `complete`/`stream`/`check` and gets an
+ * evidence-based answer assembled from web search results.
  */
 
-/** Supported provider keys, driven by `LLM_PROVIDER`. */
-export type LLMProviderName =
-  | 'gemini'
-  | 'ollama'
-  | 'openai'
-  | 'groq'
-  | 'openrouter'
-  | 'anthropic'
-  | 'together';
+/** The single supported generation backend. */
+export type LLMProviderName = 'search';
 
 /** All provider keys the Brain can select (registry order). */
-export const LLM_PROVIDER_NAMES: readonly LLMProviderName[] = [
-  'gemini',
-  'ollama',
-  'openai',
-  'groq',
-  'openrouter',
-  'anthropic',
-  'together',
-];
+export const LLM_PROVIDER_NAMES: readonly LLMProviderName[] = ['search'];
 
 /** True when the string is a known provider key. */
 export function isLLMProviderName(value: string): value is LLMProviderName {
-  return (LLM_PROVIDER_NAMES as readonly string[]).includes(value);
+  return value === 'search';
 }
 
 /** A single chat message in the Brain's provider-agnostic format. */
@@ -48,26 +25,28 @@ export interface LLMMessage {
   content: string;
 }
 
-/** Sampling / generation options forwarded to the provider. */
+/** Options forwarded to the generation engine. */
 export interface LLMOptions {
   temperature?: number;
   topP?: number;
   /** Top-K sampling; 0 disables. */
   topK?: number;
+  /** Approx. result budget for the search engine (2–10, scaled from maxTokens). */
   maxTokens?: number;
   thinking?: boolean;
   /**
-   * Override the provider used for this request.
-   * Defaults to the `LLM_PROVIDER` env var (or the stored Brain setting).
+   * Override the engine used for this request.
+   * Only 'search' is supported; unknown values fall back to 'search'.
    */
   provider?: LLMProviderName;
-  /** Override the model for this request. Defaults to the provider's env model. */
+  /** Reserved for compatibility; ignored by the search engine. */
   model?: string;
-  /**
-   * Allow automatic fallback to the next provider in the chain when this
-   * request fails with a retryable error. Defaults to `LLM_FALLBACK_ENABLED`.
-   */
+  /** Reserved for compatibility; ignored (single engine). */
   fallback?: boolean;
+  /** Restrict the search to specific engines when provided. */
+  engines?: Array<'tavily' | 'serpapi'>;
+  /** Restrict results to a recency window (days); 0 = any date. */
+  recencyDays?: number;
 }
 
 /** Streaming chunk exposed uniformly to the Brain. */
@@ -86,7 +65,7 @@ export interface LLMCompleteResult {
   latencyMs: number;
 }
 
-/** Availability status of a provider — safe to call repeatedly. */
+/** Availability status of the engine — safe to call repeatedly. */
 export interface ProviderStatus {
   provider: LLMProviderName;
   available: boolean;
@@ -95,7 +74,7 @@ export interface ProviderStatus {
   reason?: string;
 }
 
-/** Provider metadata helper result. */
+/** Engine metadata helper result. */
 export interface ProviderModelInfo {
   provider: LLMProviderName;
   model: string;
@@ -104,9 +83,9 @@ export interface ProviderModelInfo {
 }
 
 /**
- * Raised when a provider call fails. `retryable=false` means retrying will not
- * help (e.g. invalid API key); `retryable=true` means transient (rate limit,
- * outage) and safe to retry.
+ * Raised when a generation call fails. `retryable=false` means retrying will
+ * not help (e.g. missing search API key); `retryable=true` means transient
+ * (rate limit, outage) and safe to retry.
  */
 export class ProviderError extends Error {
   constructor(message: string, public retryable: boolean = true) {
@@ -116,13 +95,13 @@ export class ProviderError extends Error {
 }
 
 /**
- * The contract every LLM backend implements. The Brain never talks to a
- * specific vendor — it calls the active provider through this interface.
+ * The contract every generation backend implements. The Brain never talks to a
+ * specific vendor — it calls the active engine through this interface.
  */
 export interface LLMProvider {
   readonly name: LLMProviderName;
 
-  /** Non-throwing availability probe for the active provider. */
+  /** Non-throwing availability probe. */
   check(): Promise<ProviderStatus>;
 
   /** Non-streaming completion. Throws ProviderError on failure. */

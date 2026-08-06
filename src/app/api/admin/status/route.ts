@@ -4,11 +4,10 @@ import { checkHealth } from '@/lib/integrations/health';
 import {
   checkProvider,
   modelInfo,
-  isHealthy,
-  listModels,
-  getOllamaHost,
+  getConfiguredModel,
+  streamingAvailable,
+  providerManager,
 } from '@/brain/providers/llm';
-import { getConfiguredModel as getOllamaConfiguredModel } from '@/brain/providers/ollama';
 import { db } from '@/lib/db';
 import { createLogger } from '@/lib/logging/logger';
 
@@ -24,25 +23,24 @@ export async function GET() {
   try {
     const start = Date.now();
 
-    const [providerStatus, ollamaHealthy, models, health, stats] = await Promise.all([
+    const [providerStatus, streaming, available, health, stats] = await Promise.all([
       checkProvider(),
-      isHealthy(),
-      listModels(),
+      streamingAvailable().catch(() => false),
+      providerManager.availableProviders().catch(() => []),
       checkHealth().catch(() => null),
       computeUsageStats(),
     ]);
 
-    const ollama = await modelInfo().catch(() => null);
+    const engineInfo = await modelInfo().catch(() => null);
     const latencyMs = Date.now() - start;
 
     return NextResponse.json({
       provider: providerStatus,
-      ollama: {
-        healthy: ollamaHealthy,
-        host: getOllamaHost(),
-        configuredModel: getOllamaConfiguredModel(),
-        installedModels: models.map((m) => m.name),
-        models,
+      engine: {
+        name: 'search',
+        configuredModel: getConfiguredModel(),
+        streaming,
+        availableProviders: available,
       },
       system: {
         uptimeSeconds: Math.round(process.uptime()),
@@ -52,7 +50,7 @@ export async function GET() {
         memory: cloneMemoryUsage(process.memoryUsage()),
         env: process.env.NODE_ENV,
       },
-      ...(ollama ? { llm: { provider: ollama.provider, model: ollama.model, host: ollama.host } } : {}),
+      ...(engineInfo ? { llm: { provider: engineInfo.provider, model: engineInfo.model, host: engineInfo.host } } : {}),
       ...(health ? { health } : {}),
       usage: stats,
       latencyMs,

@@ -19,30 +19,14 @@ interface AttachmentRef {
 }
 
 /**
- * Map a client-selected model id to its provider + concrete model name.
- * Returns null for unknown ids (the stored provider choice is kept).
- */
-function mapModelToProvider(model: string): { provider: string; model: string } | null {
-  const m = model.toLowerCase();
-  if (m.startsWith('gemini')) return { provider: 'gemini', model };
-  if (m.startsWith('qwen3')) return { provider: 'ollama', model };
-  if (m.startsWith('claude')) return { provider: 'anthropic', model };
-  if (m.startsWith('gpt')) return { provider: 'openai', model };
-  if (m.startsWith('llama') || m.startsWith('gemma') || m.startsWith('qwen-qwq') || m.startsWith('whisper')) {
-    return { provider: 'groq', model };
-  }
-  return null;
-}
-
-/**
  * POST /api/chat/stream
  *
  * Server-Sent Events streaming chat, routed through the Brain.
  *   • Auth + conversation ownership + safety gate (unchanged).
  *   • The Brain runs the full pipeline (intent → context → memory → knowledge
- *     → planning → reasoning → Ollama/Qwen3 → verify → reflect → humanize).
- *   • The LLM stream runs through the Ollama provider (native NDJSON) with a
- *     graceful OpenAI-compatible fallback when configured.
+ *     → planning → reasoning → Search Engine → verify → reflect → humanize).
+ *   • Generation is deterministic and evidence-based (web search ranked and
+ *     cited) — no external LLM.
  *
  * SSE events: `{status}` (thinking/generating), `{content}` deltas,
  * `{done, modelUsed}`, and `{error}` (retryable, never a blank bubble).
@@ -52,14 +36,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { messages, query, conversationId, taskCategory, zapierEvent, zapierService, attachments, model } = body;
+    const { messages, query, conversationId, taskCategory, zapierEvent, zapierService, attachments } = body;
 
     if (!messages && !query) {
       return new Response(JSON.stringify({ error: 'Provide a message or query.' }), { status: 400 });
     }
 
     // Stricter per-user chat rate limit on top of the middleware IP limit
-    // (Ollama generation is compute-heavy; this protects the local server).
+    // (search + assembly is compute-heavy; this protects the servers).
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
       || request.headers.get('x-real-ip')
       || '127.0.0.1';
@@ -122,18 +106,8 @@ export async function POST(request: NextRequest) {
 
     // Per-user Brain settings (falls back to env defaults for anonymous).
     const settings = await loadSettings(user?.id);
-
-    // Accept an explicit model from the client (validated below by the Brain
-    // settings resolution — unknown values fall back to the configured model).
-    // Map catalog model ids to their provider so the picker works on Vercel.
-    // Unknown ids leave the stored provider untouched (user choice preserved).
-    if (model && typeof model === 'string' && model !== 'z-ai-default') {
-      const mapped = mapModelToProvider(model);
-      if (mapped) {
-        settings.provider = mapped.provider;
-        settings.model = mapped.model;
-      }
-    }
+    settings.provider = 'search';
+    settings.model = 'search-engine';
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({

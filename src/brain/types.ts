@@ -17,18 +17,15 @@ export type Complexity = 'low' | 'medium' | 'high';
 export type ReasoningLevel = 'low' | 'medium' | 'high';
 
 export interface BrainSettings {
-  /** Provider key: 'gemini' | 'ollama' | 'openai' | 'groq' | 'openrouter' | 'anthropic' | 'together'. */
+  /** Env-driven engine (always 'search'). Kept for API compatibility. */
   provider: string;
-  /** Model name (e.g. 'gemini-2.5-flash', 'qwen3:4b'). */
+  /** Engine model label (always 'search-engine'). Kept for API compatibility. */
   model: string;
-  temperature: number;
-  topP: number;
-  /** Top-K sampling (Ollama). 0 disables. */
-  topK: number;
-  maxTokens: number;
+  /** Number of search results consulted when building an answer (2–10). */
+  numResults: number;
+  /** Restrict results to a recency window (days). 0 = any date. */
+  recencyDays: number;
   streaming: boolean;
-  /** Automatic fallback to the next provider on retryable failure. */
-  fallbackEnabled: boolean;
   memoryEnabled: boolean;
   knowledgeEnabled: boolean;
   reasoningLevel: ReasoningLevel;
@@ -38,14 +35,11 @@ export interface BrainSettings {
 }
 
 export const DEFAULT_SETTINGS: BrainSettings = {
-  provider: 'gemini',
-  model: 'gemini-2.5-flash',
-  temperature: 0.7,
-  topP: 0.9,
-  topK: 0,
-  maxTokens: 1024,
+  provider: 'search',
+  model: 'search-engine',
+  numResults: 5,
+  recencyDays: 0,
   streaming: true,
-  fallbackEnabled: false,
   memoryEnabled: true,
   knowledgeEnabled: true,
   reasoningLevel: 'medium',

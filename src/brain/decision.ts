@@ -2,19 +2,18 @@
  * Brain Decision — the top-level arbiter for a single request.
  *
  * Decides the generation strategy (whether to stream, how deep to reason,
- * whether to enable thinking, and what sampling parameters to send) based on
- * the intent/complexity analysis and stored user settings. This is where the
- * plumbing between analysis and provider options lives.
+ * whether a deeper search pass is needed) from the intent/complexity analysis
+ * and stored user settings. The search engine is deterministic, so the plan
+ * no longer carries sampling parameters (temperature / topP / topK).
  */
 import type { BrainSettings, Complexity, Intent, ReasoningLevel } from './types';
 
 export interface GenerationPlan {
-  temperature: number;
-  topP: number;
-  /** Top-K sampling; 0 disables. */
-  topK: number;
-  maxTokens: number;
-  /** Enable the model's extended thinking when the reasoning level demands it. */
+  /** Number of search results consulted when building the answer. */
+  numResults: number;
+  /** Restrict results to a recency window (days); 0 = any date. */
+  recencyDays: number;
+  /** Enable a deeper reasoning pass when the reasoning level demands it. */
   thinking: boolean;
   streaming: boolean;
 }
@@ -26,27 +25,21 @@ export function decideGenerationPlan(
 ): GenerationPlan {
   const level: ReasoningLevel = settings.reasoningLevel ?? 'medium';
 
-  // Base temperature from settings.
-  let temperature = clamp(settings.temperature ?? 0.7, 0, 2);
-
-  // Creative/tasks benefit from slightly higher temp; precise ones lower.
-  if (intent === 'code' || intent === 'analysis') temperature = Math.min(temperature, 0.6);
-  if (intent === 'writing' || intent === 'design') temperature = Math.max(temperature, 0.8);
-
-  // Max tokens from settings, overridden by task complexity.
-  let maxTokens = settings.maxTokens ?? 1024;
-  if (complexity === 'high') maxTokens = Math.max(maxTokens, 2048);
-  if (settings.responseLength === 'short') maxTokens = Math.min(maxTokens, 800);
-  if (settings.responseLength === 'detailed') maxTokens = Math.max(maxTokens, 2048);
+  // Result budget: research/analysis benefits from more results.
+  let numResults = clamp(settings.numResults ?? 5, 2, 10);
+  if (intent === 'research' || intent === 'analysis') numResults = Math.max(numResults, 6);
+  if (complexity === 'high') numResults = Math.max(numResults, 7);
 
   // Thinking enabled only when the user wants a deeper reasoning pass.
   const thinking = level === 'high';
 
+  // Detailed answers consult slightly more sources.
+  if (settings.responseLength === 'detailed') numResults = Math.min(10, numResults + 2);
+  if (settings.responseLength === 'short') numResults = Math.max(2, numResults - 2);
+
   return {
-    temperature: round1(temperature),
-    topP: clamp(settings.topP ?? 0.9, 0.05, 1),
-    topK: clamp(settings.topK ?? 0, 0, 128),
-    maxTokens,
+    numResults,
+    recencyDays: clamp(settings.recencyDays ?? 0, 0, 365),
     thinking,
     streaming: settings.streaming !== false,
   };
@@ -54,10 +47,6 @@ export function decideGenerationPlan(
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
-}
-
-function round1(n: number): number {
-  return Math.round(n * 10) / 10;
 }
 
 /** Whether the Brain should remember this exchange by default. */

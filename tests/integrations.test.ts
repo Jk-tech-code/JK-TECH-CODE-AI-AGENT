@@ -14,12 +14,6 @@ vi.mock('@/lib/ai/provider', () => ({
   getProvider: () => ({ chat: vi.fn() }),
 }));
 
-vi.mock('@/brain/providers/ollama', () => ({
-  isHealthy: vi.fn(async () => false),
-  getConfiguredModel: () => 'qwen3:4b',
-  getOllamaHost: () => 'http://localhost:11434',
-}));
-
 vi.mock('ioredis', () => {
   class MockRedis {
     ping = vi.fn();
@@ -64,10 +58,10 @@ afterEach(() => {
 
 describe('env config', () => {
   it('reads credentials from environment variables only', () => {
-    process.env.OPENAI_API_KEY = 'sk-test';
-    expect(env.openai.apiKey).toBe('sk-test');
-    delete process.env.OPENAI_API_KEY;
-    expect(env.openai.apiKey).toBe('');
+    process.env.TAVILY_API_KEY = 'tvly-test';
+    expect(env.tavily.apiKey).toBe('tvly-test');
+    delete process.env.TAVILY_API_KEY;
+    expect(env.tavily.apiKey).toBe('');
   });
 
   it('returns false for missing variables', () => {
@@ -76,16 +70,16 @@ describe('env config', () => {
   });
 
   it('produces a presence report without exposing values', () => {
-    process.env.OPENAI_API_KEY = 'sk-secret-123';
+    process.env.TAVILY_API_KEY = 'tvly-secret-123';
     process.env.QDRANT_URL = '';
     const report = getEnvPresenceReport();
-    expect(report.OPENAI_API_KEY).toBe(true);
+    expect(report.TAVILY_API_KEY).toBe(true);
     expect(report.QDRANT_URL).toBe(false);
-    expect(JSON.stringify(report)).not.toContain('sk-secret-123');
+    expect(JSON.stringify(report)).not.toContain('tvly-secret-123');
   });
 
   it('exposes typed accessors with sane defaults', () => {
-    expect(env.openai.baseUrl).toContain('openai.com');
+    expect(env.tavily.apiKey).toBe('');
     // redisUrl has no default — absent means 'not configured' (reported as missing)
     expect(env.redisUrl).toBe('');
     expect(typeof env.zapier.webhookUrl).toBe('string');
@@ -103,11 +97,7 @@ describe('service registry (DI container)', () => {
   it('registers all expected providers', () => {
     registerAllIntegrations();
     const names = serviceRegistry.list().map(d => d.name);
-    expect(names).toContain('OpenAI');
-    expect(names).toContain('Gemini');
-    expect(names).toContain('Claude');
-    expect(names).toContain('Grok');
-    expect(names).toContain('DeepSeek');
+    expect(names).toContain('SearchEngine');
     expect(names).toContain('Supabase');
     expect(names).toContain('PostgreSQL');
     expect(names).toContain('Redis');
@@ -121,8 +111,8 @@ describe('service registry (DI container)', () => {
     registerAllIntegrations();
     const original = serviceRegistry.list().length;
     serviceRegistry.register({
-      name: 'OpenAI', category: 'ai', isConfigured: () => false,
-      check: async () => ({ name: 'OpenAI', category: 'ai' as const, status: 'missing' as const, latencyMs: 0 }),
+      name: 'SearchEngine', category: 'ai', isConfigured: () => false,
+      check: async () => ({ name: 'SearchEngine', category: 'ai' as const, status: 'missing' as const, latencyMs: 0 }),
     });
     expect(serviceRegistry.list().length).toBe(original);
   });
@@ -140,7 +130,7 @@ describe('health check engine', () => {
   it('runs checks for all providers without throwing', async () => {
     registerAllIntegrations();
     const payload = await checkHealth();
-    expect(payload.providers.length).toBeGreaterThanOrEqual(12);
+    expect(payload.providers.length).toBeGreaterThanOrEqual(8);
     // In tests most providers lack credentials → degraded, never throws.
     expect(['ready', 'degraded', 'error']).toContain(payload.status);
     expect(payload.timestamp).toBeTruthy();
@@ -151,7 +141,7 @@ describe('health check engine', () => {
     registerAllIntegrations();
     const ai = await checkHealth('ai');
     expect(ai.providers.every(p => p.category === 'ai')).toBe(true);
-    expect(ai.providers.length).toBe(6); // OpenAI, Gemini, Claude, Grok, DeepSeek, Ollama
+    expect(ai.providers.length).toBe(1); // SearchEngine only
   });
 
   it('maps status to HTTP codes', () => {
@@ -232,54 +222,28 @@ describe('http probing utils', () => {
 
 describe('AI provider health checks', () => {
   it('reports missing configuration without network calls', async () => {
-    delete process.env.OPENAI_API_KEY;
-    delete process.env.GEMINI_API_KEY;
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.XAI_API_KEY;
-    delete process.env.DEEPSEEK_API_KEY;
+    delete process.env.TAVILY_API_KEY;
+    delete process.env.SERPAPI_API_KEY;
 
     const fetchMock = vi.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
 
     for (const provider of aiProviders) {
-      if (provider.name === 'Ollama') continue; // local, always attempted
       const health = await provider.check();
       expect(health.status).toBe('missing');
     }
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('Ollama reports failed when the local server is down', async () => {
-    const ollama = aiProviders.find(p => p.name === 'Ollama')!;
-    expect(ollama.isConfigured()).toBe(true); // local, always attempted
-    const health = await ollama.check();
-    expect(health.status).toBe('failed');
-    expect(health.detail).toContain('Local AI');
-  });
-
-  it('reports connected when the models endpoint responds', async () => {
-    process.env.OPENAI_API_KEY = 'sk-test';
-    process.env.GEMINI_API_KEY = 'gemini-test';
-    process.env.ANTHROPIC_API_KEY = 'claude-test';
-    process.env.XAI_API_KEY = 'xai-test';
-    process.env.DEEPSEEK_API_KEY = 'deepseek-test';
-
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+  it('reports connected when a search key is present', async () => {
+    process.env.TAVILY_API_KEY = 'tvly-test';
+    process.env.SERPAPI_API_KEY = 'serp-test';
 
     for (const provider of aiProviders) {
-      if (provider.name === 'Ollama') continue; // covered separately (local)
       const health = await provider.check();
       expect(health.status).toBe('connected');
+      expect(health.detail).toContain('search-engine');
     }
-  });
-
-  it('reports failed when the models endpoint errors', async () => {
-    process.env.OPENAI_API_KEY = 'sk-test';
-    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401 }) as unknown as typeof fetch;
-    const openai = aiProviders.find(p => p.name === 'OpenAI')!;
-    const health = await openai.check();
-    expect(health.status).toBe('failed');
-    expect(health.detail).toContain('401');
   });
 });
 

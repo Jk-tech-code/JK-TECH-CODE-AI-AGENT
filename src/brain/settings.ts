@@ -1,7 +1,7 @@
 /**
- * Brain Settings store — persists per-user AI configuration in the
+ * Brain Settings store — persists per-user Brain configuration in the
  * `UserPreference` table so settings survive across sessions and can be edited
- * from the AI Settings page without code changes.
+ * from the Settings page without code changes.
  */
 import { db } from '@/lib/db';
 import { createLogger } from '@/lib/logging/logger';
@@ -19,45 +19,19 @@ function safeParse(raw: string): Partial<BrainSettings> {
   }
 }
 
-import { isLLMProviderName, type LLMProviderName } from './providers/interface';
-
-/** Resolve the env-driven provider key (gemini default; unknown → gemini). */
-export function envProviderName(): LLMProviderName {
-  const raw = (process.env.LLM_PROVIDER || 'gemini').trim().toLowerCase();
-  return isLLMProviderName(raw) ? raw : 'gemini';
+/** Env-driven default model label (always the search engine). */
+export function envDefaultModel(): string {
+  return 'search-engine';
 }
 
-/** Resolve the env-driven default model for the active provider. */
-export function envDefaultModel(provider: LLMProviderName): string {
-  switch (provider) {
-    case 'gemini': return process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    case 'groq': return process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
-    case 'openrouter': return process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash';
-    case 'openai': return process.env.OPENAI_MODEL || 'gpt-4.1';
-    case 'anthropic': return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514';
-    case 'together': return process.env.TOGETHER_MODEL || 'meta-llama/Llama-3.3-70B-Instruct-Turbo';
-    case 'ollama': return process.env.OLLAMA_MODEL || process.env.LLM_MODEL || 'qwen3:4b';
-    default: return process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  }
-}
-
-/** Whether automatic fallback is enabled by the environment. */
-function envFallbackEnabled(): boolean {
-  const raw = (process.env.LLM_FALLBACK_ENABLED || '').trim().toLowerCase();
-  return raw === 'true' || raw === '1';
+/** Whether the env has a search key (the only thing the Brain needs). */
+export function envSearchConfigured(): boolean {
+  return Boolean(process.env.TAVILY_API_KEY || process.env.SERPAPI_API_KEY);
 }
 
 /** Load stored settings for a user (falls back to env-driven defaults). */
 export async function loadSettings(userId?: string): Promise<BrainSettings> {
-  // Start from env-driven model defaults so a fresh install works out of the box.
-  const provider = envProviderName();
-  const envModel = envDefaultModel(provider);
-  const defaults: BrainSettings = {
-    ...DEFAULT_SETTINGS,
-    model: envModel,
-    provider,
-    fallbackEnabled: envFallbackEnabled(),
-  };
+  const defaults: BrainSettings = { ...DEFAULT_SETTINGS };
 
   if (!userId) return defaults;
 

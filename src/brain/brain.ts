@@ -156,10 +156,10 @@ function settingsError(message: string, retryable = true): BrainOutput {
 export async function brainComplete(req: BrainRequest, hooks?: BrainStreamHooks): Promise<BrainOutput> {
   const start = Date.now();
   const settings = resolveSettings(req.settings);
-  const provider = (settings.provider as LLMProviderName) || undefined;
+  const provider = (settings.provider as LLMProviderName) || 'search';
   const status = await checkProvider(provider);
   if (!status.available) {
-    return settingsError(status.reason || 'LLM provider unavailable.', true);
+    return settingsError(status.reason || 'Search engine unavailable.', true);
   }
 
   const ctx = await buildRequestContext(req, settings);
@@ -168,14 +168,10 @@ export async function brainComplete(req: BrainRequest, hooks?: BrainStreamHooks)
 
   try {
     const result = await complete(messages, {
-      temperature: plan.temperature,
-      topP: plan.topP,
-      topK: plan.topK,
-      maxTokens: plan.maxTokens,
+      maxTokens: plan.numResults * 100,
       thinking: plan.thinking,
       provider,
-      model: settings.model || undefined,
-      fallback: settings.fallbackEnabled,
+      recencyDays: plan.recencyDays,
     });
 
     // Verification + reflection + humanization + formatting.
@@ -223,11 +219,11 @@ export async function* brainStream(
 ): AsyncGenerator<{ type: 'status' | 'content' | 'done' | 'error'; value: unknown }, void, undefined> {
   const start = Date.now();
   const settings = resolveSettings(req.settings);
-  const provider = (settings.provider as LLMProviderName) || undefined;
+  const provider = (settings.provider as LLMProviderName) || 'search';
 
   const status = await checkProvider(provider);
   if (!status.available) {
-    yield { type: 'error', value: { message: status.reason || 'Local AI is currently unavailable.', retryable: true } };
+    yield { type: 'error', value: { message: status.reason || 'Search engine is currently unavailable.', retryable: true } };
     return;
   }
 
@@ -243,14 +239,10 @@ export async function* brainStream(
     let thinking = '';
 
     for await (const chunk of stream(messages, {
-      temperature: plan.temperature,
-      topP: plan.topP,
-      topK: plan.topK,
-      maxTokens: plan.maxTokens,
+      maxTokens: plan.numResults * 100,
       thinking: plan.thinking,
       provider,
-      model: settings.model || undefined,
-      fallback: settings.fallbackEnabled,
+      recencyDays: plan.recencyDays,
     })) {
       if (chunk.thinking) {
         thinking += chunk.thinking;

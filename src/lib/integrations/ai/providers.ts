@@ -1,132 +1,33 @@
-import { getProvider } from '@/lib/ai/provider';
-import { isHealthy, getConfiguredModel } from '@/brain/providers/ollama';
-import { env } from '../config/env';
-import { probeHttpWithRetry } from '../utils/http';
+/**
+ * AI-provider health definitions.
+ *
+ * Future note: external LLM vendors (OpenAI, Gemini, Claude, Grok, DeepSeek,
+ * Ollama) were removed. The Brain's generation engine is now the deterministic
+ * Search Engine, so the "ai" category in the health surface reports that one
+ * engine.
+ */
+import { checkProvider, getConfiguredModel } from '@/brain/providers/llm';
 import type { ProviderDefinition, ProviderHealth } from '../providers/types';
 
 const AI_CATEGORY = 'ai' as const;
 
-function configuredHealth(name: string, ok: boolean, latencyMs: number, detail?: string): ProviderHealth {
-  return { name, category: AI_CATEGORY, status: ok ? 'connected' : 'failed', latencyMs, detail };
-}
+const SEARCH_ENGINE = 'SearchEngine' as const;
 
-function missingHealth(name: string): ProviderHealth {
-  return { name, category: AI_CATEGORY, status: 'missing', latencyMs: 0 };
-}
-
-/* ── OpenAI ── */
-
-const openaiProvider: ProviderDefinition = {
-  name: 'OpenAI',
+const searchEngineProvider: ProviderDefinition = {
+  name: SEARCH_ENGINE,
   category: AI_CATEGORY,
-  isConfigured: () => env.openai.apiKey.length > 0,
-  createClient: () => {
-    if (!env.openai.apiKey) return null;
-    // Reuse the existing cached provider from src/lib/ai/provider.ts (singleton).
-    return getProvider();
-  },
+  isConfigured: () => Boolean(process.env.TAVILY_API_KEY || process.env.SERPAPI_API_KEY),
   check: async () => {
-    if (!env.openai.apiKey) return missingHealth('OpenAI');
-    const result = await probeHttpWithRetry(`${env.openai.baseUrl}/models`, {
-      headers: { Authorization: `Bearer ${env.openai.apiKey}` },
-    });
-    return configuredHealth('OpenAI', result.ok, result.latencyMs, result.ok ? undefined : `HTTP ${result.status}`);
-  },
-};
-
-/* ── Google Gemini ── */
-
-const geminiProvider: ProviderDefinition = {
-  name: 'Gemini',
-  category: AI_CATEGORY,
-  isConfigured: () => env.gemini.apiKey.length > 0,
-  check: async () => {
-    if (!env.gemini.apiKey) return missingHealth('Gemini');
-    // Send the key as a header (x-goog-api-key) instead of a URL query string
-    // so it never leaks through proxy/access logs or referrer headers.
-    const result = await probeHttpWithRetry(`${env.gemini.baseUrl}/v1beta/models`, {
-      headers: { 'x-goog-api-key': env.gemini.apiKey },
-    });
-    return configuredHealth('Gemini', result.ok, result.latencyMs, result.ok ? undefined : `HTTP ${result.status}`);
-  },
-};
-
-/* ── Anthropic Claude ── */
-
-const claudeProvider: ProviderDefinition = {
-  name: 'Claude',
-  category: AI_CATEGORY,
-  isConfigured: () => env.anthropic.apiKey.length > 0,
-  check: async () => {
-    if (!env.anthropic.apiKey) return missingHealth('Claude');
-    const result = await probeHttpWithRetry(`${env.anthropic.baseUrl}/v1/models`, {
-      headers: {
-        'x-api-key': env.anthropic.apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-    });
-    return configuredHealth('Claude', result.ok, result.latencyMs, result.ok ? undefined : `HTTP ${result.status}`);
-  },
-};
-
-/* ── xAI Grok ── */
-
-const grokProvider: ProviderDefinition = {
-  name: 'Grok',
-  category: AI_CATEGORY,
-  isConfigured: () => env.grok.apiKey.length > 0,
-  check: async () => {
-    if (!env.grok.apiKey) return missingHealth('Grok');
-    const result = await probeHttpWithRetry(`${env.grok.baseUrl}/v1/models`, {
-      headers: { Authorization: `Bearer ${env.grok.apiKey}` },
-    });
-    return configuredHealth('Grok', result.ok, result.latencyMs, result.ok ? undefined : `HTTP ${result.status}`);
-  },
-};
-
-/* ── DeepSeek ── */
-
-const deepseekProvider: ProviderDefinition = {
-  name: 'DeepSeek',
-  category: AI_CATEGORY,
-  isConfigured: () => env.deepseek.apiKey.length > 0,
-  check: async () => {
-    if (!env.deepseek.apiKey) return missingHealth('DeepSeek');
-    const result = await probeHttpWithRetry(`${env.deepseek.baseUrl}/v1/models`, {
-      headers: { Authorization: `Bearer ${env.deepseek.apiKey}` },
-    });
-    return configuredHealth('DeepSeek', result.ok, result.latencyMs, result.ok ? undefined : `HTTP ${result.status}`);
-  },
-};
-
-/* ── Ollama (local Brain model) ── */
-
-const ollamaProvider: ProviderDefinition = {
-  name: 'Ollama',
-  category: AI_CATEGORY,
-  isConfigured: () => true, // local, always attempted
-  check: async () => {
-    const start = Date.now();
-    const ok = await isHealthy();
-    const latencyMs = Date.now() - start;
-    if (!ok) {
-      return { name: 'Ollama', category: AI_CATEGORY, status: 'failed', latencyMs, detail: 'Local AI unavailable' };
-    }
-    return {
-      name: 'Ollama',
+    const status = await checkProvider();
+    const health: ProviderHealth = {
+      name: SEARCH_ENGINE,
       category: AI_CATEGORY,
-      status: 'connected',
-      latencyMs,
-      detail: getConfiguredModel(),
+      status: status.available ? 'connected' : 'missing',
+      latencyMs: 0,
+      detail: status.available ? getConfiguredModel() : status.reason || 'Search engine not configured',
     };
+    return health;
   },
 };
 
-export const aiProviders = [
-  openaiProvider,
-  geminiProvider,
-  claudeProvider,
-  grokProvider,
-  deepseekProvider,
-  ollamaProvider,
-] as const;
+export const aiProviders = [searchEngineProvider] as const;

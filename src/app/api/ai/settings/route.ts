@@ -41,8 +41,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const allowed: Array<keyof typeof DEFAULT_SETTINGS> = [
-      'provider', 'model', 'temperature', 'topP', 'topK', 'maxTokens', 'streaming',
-      'fallbackEnabled',
+      'provider', 'model', 'numResults', 'recencyDays', 'streaming',
       'memoryEnabled', 'knowledgeEnabled', 'reasoningLevel', 'responseLength',
       'systemPrompt', 'personality',
     ];
@@ -53,15 +52,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Sanitize ranges.
-    if (typeof partial.temperature === 'number') partial.temperature = Math.min(2, Math.max(0, partial.temperature));
-    if (typeof partial.topP === 'number') partial.topP = Math.min(1, Math.max(0.05, partial.topP));
-    if (typeof partial.topK === 'number') partial.topK = Math.min(128, Math.max(0, Math.floor(partial.topK)));
-    if (typeof partial.maxTokens === 'number') partial.maxTokens = Math.min(32768, Math.max(64, Math.floor(partial.maxTokens)));
+    if (typeof partial.numResults === 'number') partial.numResults = Math.min(10, Math.max(2, Math.floor(partial.numResults)));
+    if (typeof partial.recencyDays === 'number') partial.recencyDays = Math.min(365, Math.max(0, Math.floor(partial.recencyDays)));
     if (partial.reasoningLevel && !['low', 'medium', 'high'].includes(partial.reasoningLevel)) delete partial.reasoningLevel;
     if (partial.responseLength && !['short', 'balanced', 'detailed'].includes(partial.responseLength)) delete partial.responseLength;
     if (partial.provider && typeof partial.provider === 'string' && !LLM_PROVIDER_NAMES.includes(partial.provider as never)) delete partial.provider;
     if (typeof partial.streaming === 'boolean') partial.streaming = partial.streaming;
-    if (typeof partial.fallbackEnabled === 'boolean') partial.fallbackEnabled = partial.fallbackEnabled;
     if (typeof partial.memoryEnabled === 'boolean') partial.memoryEnabled = partial.memoryEnabled;
     if (typeof partial.knowledgeEnabled === 'boolean') partial.knowledgeEnabled = partial.knowledgeEnabled;
     if (typeof partial.systemPrompt === 'string') partial.systemPrompt = partial.systemPrompt.slice(0, 2000);

@@ -10,31 +10,11 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
-  Brain, Cpu, Sparkles, Loader2, Save, CheckCircle2, Database, FileText,
+  Brain, Cpu, Loader2, Save, CheckCircle2, Database, FileText,
 } from 'lucide-react';
 import { DEFAULT_SETTINGS, type BrainSettings } from '@/brain/types';
 
-const PROVIDER_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'gemini', label: 'Gemini (cloud, default)' },
-  { value: 'ollama', label: 'Ollama (local)' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'groq', label: 'Groq' },
-  { value: 'openrouter', label: 'OpenRouter' },
-  { value: 'anthropic', label: 'Anthropic Claude' },
-  { value: 'together', label: 'Together AI' },
-];
-
-const MODEL_PRESETS: Record<string, string[]> = {
-  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'],
-  ollama: ['qwen3:4b', 'qwen3:8b', 'qwen3:14b'],
-  openai: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini'],
-  groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it', 'qwen-qwq-32b'],
-  openrouter: ['google/gemini-2.5-flash', 'anthropic/claude-sonnet-4', 'openai/gpt-4o', 'meta-llama/llama-3.3-70b-instruct'],
-  anthropic: ['claude-sonnet-4-20250514', 'claude-3-7-sonnet-20250219', 'claude-3-5-haiku-latest'],
-  together: ['meta-llama/Llama-3.3-70B-Instruct-Turbo', 'Qwen/Qwen2.5-72B-Instruct', 'deepseek-ai/DeepSeek-V3', 'mistralai/Mixtral-8x7B-Instruct-v0.1'],
-};
-
-interface ProviderHealth {
+interface EngineHealth {
   provider: string;
   available: boolean;
   model: string;
@@ -43,9 +23,7 @@ interface ProviderHealth {
 
 export default function AISettingsPage() {
   const [settings, setSettings] = useState<BrainSettings>(DEFAULT_SETTINGS);
-  const [status, setStatus] = useState<{ provider: string; available: boolean; model: string; reason?: string } | null>(null);
-  const [providers, setProviders] = useState<ProviderHealth[]>([]);
-  const [installedModels, setInstalledModels] = useState<string[]>([]);
+  const [status, setStatus] = useState<EngineHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -58,8 +36,6 @@ export default function AISettingsPage() {
       const data = await res.json();
       setSettings(data.settings);
       setStatus(data.provider);
-      setProviders(Array.isArray(data.providers) ? data.providers : []);
-      setInstalledModels((data.models || []).map((m: { name: string }) => m.name));
     } catch {
       toast.error('Could not load AI settings.');
     } finally {
@@ -118,7 +94,6 @@ export default function AISettingsPage() {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as Partial<BrainSettings>;
-      // Merge only known numeric/string/boolean fields; discard the rest.
       const merged = { ...settings };
       for (const key of Object.keys(parsed) as Array<keyof BrainSettings>) {
         const v = parsed[key];
@@ -134,7 +109,7 @@ export default function AISettingsPage() {
     }
   }, [settings]);
 
-  const providerOk = status?.available !== false;
+  const engineOk = status?.available !== false;
 
   const slider = useMemo(() => (label: string, value: number, min: number, max: number, step: number, unit: string, onChange: (v: number) => void) => (
     <div className="space-y-2">
@@ -177,112 +152,40 @@ export default function AISettingsPage() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-6 px-4 pt-8">
-        {/* Provider status */}
+        {/* Engine status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-[var(--accent)]" /> Brain Provider
+              <Cpu className="h-4 w-4 text-[var(--accent)]" /> Brain Engine
             </CardTitle>
-            <CardDescription>Pick any supported LLM backend — Gemini in the cloud by default, local Ollama for development, or Groq / OpenRouter / OpenAI / Claude / Together.</CardDescription>
+            <CardDescription>The Brain answers from ranked web-search evidence (Tavily / SerpAPI) — no external LLM API key needed.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--surface)] px-3 py-2.5">
-              <span className={`h-2 w-2 rounded-full ${providerOk ? 'bg-emerald-500' : 'bg-red-500'}`} />
+              <span className={`h-2 w-2 rounded-full ${engineOk ? 'bg-emerald-500' : 'bg-red-500'}`} />
               <span className="text-sm text-[var(--text-primary)]">
-                {providerOk ? `${status?.model} available` : status?.reason || 'Local AI is currently unavailable.'}
+                {engineOk ? `${status?.model || 'Search Engine'} ready` : status?.reason || 'Search engine is not configured yet.'}
               </span>
-              {!providerOk && (
+              {!engineOk && (
                 <Button variant="outline" size="sm" className="ml-auto" onClick={() => void load()}>
                   Retry
                 </Button>
               )}
             </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="model" className="text-[var(--text-muted-70)]">Model</Label>
-                <Input
-                  id="model"
-                  list="model-presets"
-                  value={settings.model}
-                  onChange={(e) => update('model', e.target.value)}
-                />
-                <datalist id="model-presets">
-                  {(MODEL_PRESETS[settings.provider] || []).map((m) => <option key={m} value={m} />)}
-                  {installedModels
-                    .filter((m) => !(MODEL_PRESETS[settings.provider] || []).includes(m))
-                    .map((m) => <option key={m} value={m} />)}
-                </datalist>
-                <p className="text-[11px] text-[var(--text-muted-30)]">
-                  Installed locally: {installedModels.length > 0 ? installedModels.join(', ') : 'fetching…'}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="provider" className="text-[var(--text-muted-70)]">Provider</Label>
-                <select
-                  id="provider"
-                  className="flex h-9 w-full rounded-lg border border-[var(--border-color)] bg-[var(--surface)] px-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-                  value={settings.provider}
-                  onChange={(e) => update('provider', e.target.value as BrainSettings['provider'])}
-                >
-                  {PROVIDER_OPTIONS.map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
-        {/* All providers */}
+        {/* Search retrieval */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-[var(--accent)]" /> Available Providers
+              <Database className="h-4 w-4 text-[var(--accent)]" /> Retrieval
             </CardTitle>
-            <CardDescription>Which backends are configured and reachable. Keys come from your environment (Vercel project settings in production).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {providers.length === 0 ? (
-              <p className="text-xs text-[var(--text-muted-30)]">Loading provider status…</p>
-            ) : (
-              <ul className="space-y-2">
-                {providers.map((p) => {
-                  const label = PROVIDER_OPTIONS.find((o) => o.value === p.provider)?.label || p.provider;
-                  const active = p.provider === settings.provider;
-                  return (
-                    <li
-                      key={p.provider}
-                      className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${
-                        active ? 'border-[var(--accent)] bg-[var(--surface-accent)]' : 'border-[var(--border-color)] bg-[var(--surface)]'
-                      }`}
-                    >
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${p.available ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                      <span className="truncate text-[var(--text-primary)]">{label}</span>
-                      <span className="ml-auto truncate text-xs text-[var(--text-muted-50)]" title={p.reason || p.model}>
-                        {p.available ? p.model : p.reason || 'Unavailable'}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Sampling */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[var(--accent)]" /> Generation
-            </CardTitle>
-            <CardDescription>Control how the model responds.</CardDescription>
+            <CardDescription>Control the evidence the Brain collects and cites when answering.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {slider('Temperature', settings.temperature, 0, 2, 0.1, '', (v) => update('temperature', v))}
-            {slider('Top P', settings.topP, 0.05, 1, 0.05, '', (v) => update('topP', v))}
-            {slider('Top K', settings.topK, 0, 128, 1, '', (v) => update('topK', v))}
-            {slider('Max Tokens', settings.maxTokens, 256, 8192, 256, '', (v) => update('maxTokens', v))}
+            {slider('Sources per answer', settings.numResults, 2, 10, 1, '', (v) => update('numResults', v))}
+            {slider('Freshness window (days, 0 = any)', settings.recencyDays, 0, 365, 7, 'd', (v) => update('recencyDays', v))}
 
             <div className="space-y-2">
               <Label className="text-[var(--text-muted-70)]">Response Length</Label>
@@ -352,16 +255,9 @@ export default function AISettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-[var(--text-primary)]">Streaming</p>
-                <p className="text-xs text-[var(--text-muted-50)]">Stream responses token-by-token with a live cursor.</p>
+                <p className="text-xs text-[var(--text-muted-50)]">Stream the assembled answer word-by-word with a live cursor.</p>
               </div>
               <Switch checked={settings.streaming !== false} onCheckedChange={(v) => update('streaming', v)} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-[var(--text-primary)]">Automatic fallback</p>
-                <p className="text-xs text-[var(--text-muted-50)]">If the selected provider fails (rate limit, outage), retry with the next configured provider automatically.</p>
-              </div>
-              <Switch checked={settings.fallbackEnabled === true} onCheckedChange={(v) => update('fallbackEnabled', v)} />
             </div>
 
             <div className="flex items-center justify-between border-t border-[var(--border-color)] pt-4">

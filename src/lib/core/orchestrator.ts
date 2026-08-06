@@ -1,5 +1,14 @@
-import { generateText } from 'ai';
-import { getModel, resolveModelAlias } from '@/lib/ai/provider';
+/**
+ * Deterministic task orchestrator.
+ *
+ * The orchestrator routes a request to the Brain's single generation engine
+ * (the Search Engine). It keeps the same surface (`route`, `init`,
+ * `runVoting`, `resolveDisagreement`, `getCapabilities`, `getBestModelFor`)
+ * that the rest of the app (master, visual, agents, autonomy, API routes)
+ * relies on — but generation is now deterministic and evidence-based instead
+ * of calling an external LLM.
+ */
+import { complete } from '@/brain/providers/llm';
 import { MODEL_REGISTRY, TASK_MODEL_MAP } from './model-catalog';
 import { createLogger } from '@/lib/logging/logger';
 import type {
@@ -12,59 +21,62 @@ import type {
 
 const orchestratorLogger = createLogger('orchestrator');
 
+/** Pull the user query out of the message list for the search engine. */
+function extractQuery(req: ModelRequest): string {
+  for (let i = req.messages.length - 1; i >= 0; i--) {
+    const msg = req.messages[i];
+    if (msg.role === 'user' && msg.content.trim().length > 0) {
+      return msg.content.split('[CONTEXT]')[0].trim();
+    }
+  }
+  return '';
+}
+
 export class Orchestrator {
   private fallbackChain: ModelId[][] = [];
 
   /**
-   * Validate that the AI provider is configured.
-   * Safe to call multiple times. Throws AppError 503 when no API key.
+   * Validate that the generation engine is configured.
+   * Safe to call multiple times. Throws AppError 503 when no search key.
    */
   async init(): Promise<void> {
-    // getModel triggers provider configuration validation (throws AppError 503 on missing key)
-    getModel(resolveModelAlias('z-ai-default'));
+    const { searchAggregator } = await import('./search');
+    await searchAggregator.init();
   }
 
   async route(req: ModelRequest): Promise<ModelResponse> {
-    const candidates = TASK_MODEL_MAP[req.taskCategory] || TASK_MODEL_MAP.general;
     const startTime = Date.now();
+    const query = extractQuery(req);
+    const taskCategory: TaskCategory = req.taskCategory || 'general';
+    const candidates = TASK_MODEL_MAP[taskCategory] || TASK_MODEL_MAP.general;
+    const modelId: ModelId = candidates[0] || 'z-ai-default';
 
-    for (const modelId of candidates) {
-      try {
-        return await this.tryModel(modelId, req, startTime);
-      } catch (err) {
-        orchestratorLogger.warn(`Model ${modelId} failed`, {
-          error: err instanceof Error ? err.message : String(err),
-        });
-        continue;
-      }
+    try {
+      const result = await complete(
+        req.messages,
+        {
+          maxTokens: req.maxTokens,
+          thinking: req.thinking,
+        },
+      );
+
+      const content = result.content || '';
+      const latencyMs = Date.now() - startTime;
+
+      return {
+        content,
+        modelId,
+        thinking: result.thinking || undefined,
+        latencyMs,
+        tokensUsed: { input: 0, output: 0 },
+        confidence: this.estimateConfidence(content, modelId, taskCategory),
+      };
+    } catch (err) {
+      orchestratorLogger.warn('Generation failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
     }
-
-    return this.tryModel('z-ai-default', req, startTime);
-  }
-
-  private async tryModel(modelId: ModelId, req: ModelRequest, startTime: number): Promise<ModelResponse> {
-    const result = await generateText({
-      model: getModel(resolveModelAlias(modelId)),
-      messages: req.messages,
-      temperature: req.temperature ?? 0.7,
-      maxOutputTokens: req.maxTokens,
-      abortSignal: req.signal,
-    });
-
-    const content = result.text || '';
-    const thinking = result.reasoningText || undefined;
-    const latencyMs = Date.now() - startTime;
-    const inputTokens = result.usage?.inputTokens ?? 0;
-    const outputTokens = result.usage?.outputTokens ?? 0;
-
-    return {
-      content,
-      modelId,
-      thinking,
-      latencyMs,
-      tokensUsed: { input: inputTokens, output: outputTokens },
-      confidence: this.estimateConfidence(content, modelId, req.taskCategory),
-    };
   }
 
   private estimateConfidence(content: string, modelId: ModelId, task: TaskCategory): number {
@@ -78,35 +90,15 @@ export class Orchestrator {
 
   async runVoting(
     req: ModelRequest,
-    models: ModelId[],
-    minAgreement = 0.6
+    _models: ModelId[],
+    _minAgreement = 0.6
   ): Promise<{ consensus: string; confidence: number; votes: Array<{ modelId: ModelId; content: string }> }> {
-    const results = await Promise.allSettled(
-      models.map(m => this.tryModel(m, req, Date.now()))
-    );
-
-    const votes: Array<{ modelId: ModelId; content: string }> = [];
-    for (const r of results) {
-      if (r.status === 'fulfilled') {
-        votes.push({ modelId: r.value.modelId, content: r.value.content });
-      }
-    }
-
-    if (votes.length === 0) {
-      const fallback = await this.tryModel('z-ai-default', req, Date.now());
-      return { consensus: fallback.content, confidence: 0.3, votes: [{ modelId: 'z-ai-default', content: fallback.content }] };
-    }
-
-    if (votes.length === 1) {
-      return { consensus: votes[0].content, confidence: 0.5, votes };
-    }
-
-    const agreementRatio = votes.length / models.length;
-
+    // Single deterministic engine — voting is a no-op that returns the answer.
+    const fallback = await this.route(req);
     return {
-      consensus: votes[0].content,
-      confidence: Math.min(1, agreementRatio),
-      votes,
+      consensus: fallback.content,
+      confidence: fallback.confidence,
+      votes: [{ modelId: fallback.modelId, content: fallback.content }],
     };
   }
 
@@ -114,17 +106,7 @@ export class Orchestrator {
     req: ModelRequest,
     responses: Array<{ modelId: ModelId; content: string }>
   ): Promise<{ resolved: string; explanation: string }> {
-    const analysisMessages = [
-      { role: 'system' as const, content: 'You are a disagreement resolver. Multiple AI models gave different answers. Analyze each, identify which is most accurate, and explain your reasoning. Be specific about factual errors.' },
-      { role: 'user' as const, content: responses.map((r, i) => `[Model ${i + 1}: ${r.modelId}]\n${r.content}`).join('\n\n---\n\n') },
-    ];
-
-    const result = await generateText({
-      model: getModel(resolveModelAlias(req.taskCategory === 'general' ? 'z-ai-default' : 'z-ai-default')),
-      messages: analysisMessages,
-    });
-    const resolved = result.text || responses[0]?.content || '';
-
+    const resolved = responses[0]?.content || (await this.route(req)).content;
     return { resolved, explanation: resolved };
   }
 
