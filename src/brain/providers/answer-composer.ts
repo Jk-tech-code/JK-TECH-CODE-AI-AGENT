@@ -160,27 +160,39 @@ function wordOverlap(a: string, b: string): number {
 
 export type Intent =
   | 'conversational'
+  | 'writing'
+  | 'email'
   | 'coding'
+  | 'debugging'
   | 'planning'
-  | 'troubleshoot'
-  | 'compare'
-  | 'explain'
+  | 'brainstorm'
+  | 'translation'
+  | 'summarization'
+  | 'analysis'
   | 'research'
+  | 'factcheck'
+  | 'current'
+  | 'compare'
   | 'recommend'
+  | 'explain'
   | 'general';
 
 export interface QueryAnalysis {
   intent: Intent;
-  /** The concrete thing the user is working on, e.g. "a website for your business". */
+  /** The concrete thing the user is working on (e.g. "a website for your business"). */
   subject: string;
-  /** A natural rephrase of what the user wants done, e.g. "building a website for your business". */
+  /** A natural rephrase of what the user wants done (e.g. "building a website for your business"). */
   action: string;
-  /** True when web search is required to answer well. */
+  /** True when the web search pipeline is required (research / fact-checking / current info). */
   needsSearch: boolean;
   /** Clarifying questions to offer (max 2) when essential context is missing. */
   clarifying: string[];
   /** A hint for which starter code snippet (if any) to include. */
   codeHint?: string;
+  /** True only when the user explicitly asked to see sources / citations / links. */
+  showSources: boolean;
+  /** The raw user prompt, kept so direct-generation composers can stay faithful to it. */
+  raw: string;
 }
 
 const GERUNDS: Record<string, string> = {
@@ -196,28 +208,28 @@ const PLANNING_VERBS = /^(build|make|create|start|launch|set up|setup|plan|grow|
 export function detectIntent(query: string): Intent {
   const q = query.toLowerCase().trim();
 
+  // Conversational: greetings, thanks, identity.
   if (/^(hi|hello|hey|yo|howdy|good (morning|afternoon|evening)|what'?s up|sup)\b/.test(q)) return 'conversational';
   if (/^(thanks|thank you|thx|ty|cheers)\b/.test(q)) return 'conversational';
   if (/who are you|what can you do|what are you\b|how do you work|what are you capable|what is your name|what do you do\b/.test(q)) return 'conversational';
 
-  // Planning: explicit plan/roadmap, or building a tangible artifact/business.
-  if (
-    /\b(plan|roadmap|strategy|phase)\b/.test(q) ||
-    /\b(build|start|launch|create|set up|setup)\b.*\b(website|web ?app|app|application|saas|business|startup|product|blog|store|shop|e-?commerce|portfolio|company|restaurant|agency)\b/.test(q) ||
-    /^(how (do|can|should) i (build|start|make|create|launch|plan))\b/.test(q)
-  ) {
-    return 'planning';
-  }
-
-  // Troubleshooting: things that are broken or failing.
+  // Debugging: something is broken or failing.
   if (
     /(not working|doesn'?t work|doesn'?t run|error|exception|crash|segfault|broken|fails?|failed|stuck|won'?t (start|load|open|connect)|can'?t|cannot|why is my|why does my|why won'?t)/.test(q) ||
     /\b(how (do|can|to) (i )?fix|how to solve|how to resolve|debug this|troubleshoot)\b/.test(q)
   ) {
-    return 'troubleshoot';
+    return 'debugging';
   }
 
-  // Coding: writing, fixing, reviewing, or explaining code with concrete signals.
+  // Email writing — handled before generic writing so emails get the email format.
+  if (
+    /(email|e-?mail|mail to)\b/.test(q) &&
+    /\b(draft|write|compose|send|create|generate|edit|reply|respond)\b/.test(q)
+  ) {
+    return 'email';
+  }
+
+  // Coding: writing code with concrete signals.
   if (
     /\b(write|fix|debug|review|refactor|implement|explain)\b.*\b(code|function|script|component|module|python|javascript|typescript|react|next\.?js|node\.?js|sql|regex|api|docker|git)\b/.test(q) ||
     /\b(function|component|script|snippet|regex|sql query|api endpoint|npm install|pip install|data structure|algorithm|class )\b/.test(q) ||
@@ -227,19 +239,64 @@ export function detectIntent(query: string): Intent {
     return 'coding';
   }
 
+  // Research + fact-checking + current/live info — the ONLY search-backed intents.
+  if (/\b(verify|fact ?check|is it true|is that true|is this (true|accurate)|is that (true|accurate)|is .+ accurate)\b/.test(q)) {
+    return 'factcheck';
+  }
+  if (
+    /\b(latest news|current events|breaking news|headlines|news today|live (updates?|coverage|results?)|stock (price|prices)|share price|market (today|now)|weather|temperature|forecast|sports? (scores?|results?|fixtures?)|score ?board|bitcoin price|crypto price)\b/.test(q) ||
+    /\b(what'?s (new|happening)|what is (new|happening|going on)|news on|today'?s|this week'?s)\b.*\b(today|this week|now|202\d)\b/.test(q)
+  ) {
+    return 'current';
+  }
+  if (/\b(research|trends?|statistics?|stats|survey|report|market (size|share|research)|industry (report|data)|latest)\b/.test(q)) {
+    return 'research';
+  }
+
+  // Planning: building a tangible artifact/business.
+  if (
+    /\b(plan|roadmap|strategy|phase)\b/.test(q) ||
+    /\b(build|start|launch|create|set up|setup)\b.*\b(website|web ?app|app|application|saas|business|startup|product|blog|store|shop|e-?commerce|portfolio|company|restaurant|agency)\b/.test(q) ||
+    /^(how (do|can|should) i (build|start|make|create|launch|plan))\b/.test(q)
+  ) {
+    return 'planning';
+  }
+
+  // Brainstorming ideas.
+  if (/\b(brain ?storm|ideas? for|came up with|what should i (do|make|build|create)|give me (some )?ideas)\b/.test(q)) {
+    return 'brainstorm';
+  }
+
+  // Summarization.
+  if (/\b(summarize|summary|tl;?dr|in short|brief me|key points of|summarise)\b/.test(q)) {
+    return 'summarization';
+  }
+
+  // Translation.
+  if (/\b(translate|translation|in (french|spanish|german|japanese|chinese|italian|portuguese|russian|korean|arabic|hindi)|into english|to english)\b/.test(q)) {
+    return 'translation';
+  }
+
+  // File / document / spreadsheet / PDF / image analysis (attachments).
+  if (
+    /\b(analyze|analyse|read|extract|ocr|scan|process)\b.*\b(file|document|spreadsheet|sheet|pdf|image|photo|picture|screenshot|chart|resume)\b/.test(q) ||
+    /\b(what (does|do|is) this (file|document|spreadsheet|sheet|pdf|image|photo|picture))\b/.test(q) ||
+    /\b(ocr|extract text)\b/.test(q)
+  ) {
+    return 'analysis';
+  }
+
   // Comparison: X vs Y.
   if (/\b(vs\.?|versus|compare|comparison|difference between|better than|alternatives? to|which is better|which should i)\b/.test(q)) {
     return 'compare';
   }
 
-  // Definition / explanation.
-  if (/\b(what is|what are|define|explain|meaning of|what does .* mean|how does .* work|what'?s the difference)\b/.test(q)) {
-    return 'explain';
-  }
-
-  // Research: current information, trends, statistics.
-  if (/\b(research|latest|trends?|news|statistics?|stats|survey|report|market size|market share|industry)\b/.test(q)) {
-    return 'research';
+  // Generic content creation (essays, posts, letters, scripts, proposals, docs…).
+  if (
+    /\b(draft|write|compose|generate|create|produce|prepare|outline)\b.*\b(essay|article|blog|post|linkedin|caption|tweet|status|letter|cover letter|story|script|proposal|marketing|seo|seo copy|product description|documentation|agenda|report|resume|cv|job application|interview|introduction|message|reply|review|testimonial|bio|slogan|tagline|headline|landing page|email copy|newsletter)\b/.test(q) ||
+    /^(write|draft|compose|generate|create|produce|prepare)\s+(me\s+)?(a |an |the )?\b(essay|article|blog|post|letter|story|script|proposal|report|resume|cv|bio|agenda|email)\b/.test(q)
+  ) {
+    return 'writing';
   }
 
   // Recommendation: best options, worth it, should I.
@@ -247,7 +304,23 @@ export function detectIntent(query: string): Intent {
     return 'recommend';
   }
 
+  // Definition / explanation.
+  if (/\b(what is|what are|define|explain|meaning of|what does .* mean|how does .* work|what'?s the difference)\b/.test(q)) {
+    return 'explain';
+  }
+
   return 'general';
+}
+
+/**
+ * The ONLY intents that trigger the web-search pipeline. Everything else is
+ * answered directly by the assistant, per the intent policy.
+ */
+const SEARCH_INTENTS = new Set<Intent>(['research', 'factcheck', 'current']);
+
+/** True when the user explicitly asked to see sources / citations / links. */
+function wantsSources(query: string): boolean {
+  return /(where (did|do) you (get|find)|show (me )?(your )?(sources|citations|links|references)|what are your sources|list (your )?sources|cite (your )?sources|citations?|references?|your sources|\bsources?\b(?! ?code))/i.test(query);
 }
 
 /** Replace first-person possession with the second person for a natural tone. */
@@ -282,11 +355,28 @@ function extractSubject(query: string, intent: Intent): string {
     if (m) return yourize(m[1].trim());
   }
 
-  if (intent === 'troubleshoot') {
+  if (intent === 'debugging') {
     const m = q
       .replace(/^(why (is|does|won'?t)|why)\s+(is|does|won'?t)?\s+(my|the|this|it)?\s*/i, '')
       .replace(/\s+(not working|not loading|won'?t load|won'?t start|won'?t open|won'?t connect|isn'?t working|doesn'?t work|broken|failed|fails|crashing|crash|error)\s*$/i, '')
       .replace(/\s+(error|issue|problem)\s*$/i, '')
+      .trim();
+    if (m && m.length > 2) return yourize(m);
+  }
+
+  if (intent === 'email') {
+    // Take everything AFTER the word "email" — e.g. "… requesting annual leave".
+    const after = q.replace(/^.*?\b(e-?mail|email|mail)\b\s*[:]?\s*/i, '').trim();
+    const topic = after.replace(/^(about|requesting|regarding|to ask (for|about)|concerning)\s+/i, '').trim();
+    return yourize(topic && topic.length > 2 ? topic : q);
+  }
+
+  if (intent === 'writing') {
+    const m = q
+      .replace(/^(please |kindly )?/i, '')
+      .replace(/^(draft|write|compose|generate|create|produce|prepare|send|outline)\s+(me\s+)?(a |an |the |this )?/i, '')
+      .replace(/^(essay|article|blog post|post|letter|cover letter|story|script|proposal|report|resume|cv|bio|agenda|message|documentation)\s+(about|on|regarding|for|to)\s+/i, '')
+      .replace(/\s*(about|on|regarding|for)\s+.*$/i, '')
       .trim();
     if (m && m.length > 2) return yourize(m);
   }
@@ -343,10 +433,14 @@ function extractAction(subject: string, intent: Intent, query: string): string {
     return `planning ${subject}`;
   }
   if (intent === 'coding') return `writing ${subject}`;
-  if (intent === 'troubleshoot') return `fixing ${subject}`;
+  if (intent === 'debugging') return `fixing ${subject}`;
+  if (intent === 'email') return `writing an email about ${subject}`;
+  if (intent === 'writing') return `writing ${subject}`;
   if (intent === 'compare') return `comparing ${subject}`;
   if (intent === 'explain') return `explaining ${subject}`;
   if (intent === 'research') return `researching ${subject}`;
+  if (intent === 'factcheck') return `checking ${subject}`;
+  if (intent === 'current') return `finding the latest on ${subject}`;
   if (intent === 'recommend') return `choosing ${subject}`;
   return subject;
 }
@@ -386,7 +480,16 @@ export function analyzeQuery(query: string): QueryAnalysis {
 
   const codeHint = intent === 'coding' ? detectCodeHint(query) : undefined;
 
-  return { intent, subject, action, needsSearch: !conversational, clarifying, codeHint };
+  return {
+    intent,
+    subject,
+    action,
+    needsSearch: !conversational && SEARCH_INTENTS.has(intent),
+    clarifying,
+    codeHint,
+    showSources: wantsSources(query),
+    raw: query.trim(),
+  };
 }
 
 /** Detect a starter-code pattern the user asked about. */
@@ -581,7 +684,7 @@ function composePlanning(analysis: QueryAnalysis, evidence: EvidenceSentence[], 
   const { action, subject, clarifying } = analysis;
   const lines: string[] = [];
 
-  lines.push(`${cap(action)} is best approached in phases: scope the work first, build the smallest useful version, then validate and expand. The sources below support that sequence.\n`);
+  lines.push(`${cap(action)} is best approached in phases: scope the work first, build the smallest useful version, then validate and expand.\n`);
 
   lines.push('**Phase 1 — Scope and requirements**');
   if (evidence.length >= 2) {
@@ -621,7 +724,7 @@ function composePlanning(analysis: QueryAnalysis, evidence: EvidenceSentence[], 
   lines.push('**Your immediate next step**');
   lines.push(`Write a one-page brief for ${subject}: the audience, the core goal, and the 3 features that matter most. That brief becomes your Phase 1 checklist.`);
 
-  lines.push(sources(results));
+  if (analysis.showSources) lines.push(sources(results));
   return lines.join('\n');
 }
 
@@ -666,7 +769,7 @@ function composeCoding(analysis: QueryAnalysis, evidence: EvidenceSentence[], re
   lines.push(`2. Add the failure paths (timeouts, invalid input, offline).`);
   lines.push(`3. Write a smoke test for the core path, then refactor from real usage.`);
 
-  lines.push(sources(results));
+  if (analysis.showSources) lines.push(sources(results));
   return lines.join('\n');
 }
 
@@ -706,7 +809,7 @@ function composeTroubleshoot(analysis: QueryAnalysis, evidence: EvidenceSentence
   lines.push('**If it still fails**');
   lines.push('Share the exact error message, the environment, and the steps to reproduce — that combination is enough to pinpoint it.');
 
-  lines.push(sources(results));
+  if (analysis.showSources) lines.push(sources(results));
   return lines.join('\n');
 }
 
@@ -738,7 +841,7 @@ function composeCompare(analysis: QueryAnalysis, evidence: EvidenceSentence[], r
   lines.push('**Bottom line**');
   lines.push(`Choose based on your must-haves for ${subject}, and trial the winner on real work before you commit.`);
 
-  lines.push(sources(results));
+  if (analysis.showSources) lines.push(sources(results));
   return lines.join('\n');
 }
 
@@ -762,7 +865,7 @@ function composeExplain(analysis: QueryAnalysis, evidence: EvidenceSentence[], r
   lines.push('**Why it matters**');
   lines.push('Understanding this at a working level matters less for memorizing it and more for making sound decisions with it — the difference between following a pattern and knowing when to break it.');
 
-  lines.push(sources(results));
+  if (analysis.showSources) lines.push(sources(results));
   return lines.join('\n');
 }
 
@@ -771,28 +874,28 @@ function composeResearch(analysis: QueryAnalysis, evidence: EvidenceSentence[], 
   const lines: string[] = [];
 
   if (evidence.length > 0) {
-    lines.push(`Here's what the sources agree on about ${subject}.\n`);
+    lines.push(`Here's the current picture on ${subject}.\n`);
     lines.push(weave(evidence.slice(0, 4)));
     lines.push('');
   } else {
-    lines.push(`Here's what the sources say about ${subject}.\n`);
+    lines.push(`Here's the current picture on ${subject}.\n`);
   }
 
   if (evidence.length >= 5) {
     lines.push('**Where they differ**');
     bullet(evidence.slice(4, 6)).forEach((b) => lines.push(b));
     lines.push('');
-    lines.push('Where sources disagree, treat the middle ground as the safer working assumption and verify against your own data.');
+    lines.push('The picture isn\'t unanimous — where views differ, treat the middle ground as the safer working assumption and verify against your own data.');
   } else {
     lines.push('**A note on uncertainty**');
-    lines.push('The sources are broadly consistent, but research like this moves fast — treat specifics as current, not permanent, and check the dates on the sources below.');
+    lines.push('This area moves fast — treat specifics as current, not permanent.');
   }
 
   lines.push('');
   lines.push('**Recommended next step**');
-  lines.push(`Dig into the two or three most relevant sources below and extract the numbers that matter for your decision.`);
+  lines.push(`Focus on the two or three most relevant points and extract the numbers that matter for your decision.`);
 
-  lines.push(sources(results));
+  if (analysis.showSources) lines.push(sources(results));
   return lines.join('\n');
 }
 
@@ -800,7 +903,7 @@ function composeRecommend(analysis: QueryAnalysis, evidence: EvidenceSentence[],
   const { subject, clarifying } = analysis;
   const lines: string[] = [];
 
-  lines.push(`The best ${subject} depends on your priorities, but the sources point to a clear set of front-runners.\n`);
+  lines.push(`The best ${subject} depends on your priorities, but a few clear front-runners stand out.\n`);
 
   lines.push('**The leading options**');
   if (evidence.length >= 3) {
@@ -826,7 +929,7 @@ function composeRecommend(analysis: QueryAnalysis, evidence: EvidenceSentence[],
   lines.push('**Bottom line**');
   lines.push(`Shortlist the top two for ${subject}, compare them on your must-haves, and pick the one that wins on those — then validate it on a small trial.`);
 
-  lines.push(sources(results));
+  if (analysis.showSources) lines.push(sources(results));
   return lines.join('\n');
 }
 
@@ -851,7 +954,288 @@ function composeGeneral(analysis: QueryAnalysis, evidence: EvidenceSentence[], r
   lines.push('**Bottom line**');
   lines.push(`For ${subject}, keep the goal concrete and the next action small — decide on the single most useful step and take it.`);
 
-  lines.push(sources(results));
+  if (analysis.showSources) lines.push(sources(results));
+  return lines.join('\n');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Direct-generation composers (no web search)
+// ────────────────────────────────────────────────────────────────────────────
+
+function composeEmail(analysis: QueryAnalysis): string {
+  const q = analysis.raw.toLowerCase();
+  const topic = analysis.subject || 'your request';
+  const greeting = 'Dear [Recipient\'s Name],';
+
+  let subjectLine = `Regarding ${cap(topic)}`;
+  let body: string[] = [
+    `I am writing to you regarding ${topic}.`,
+    'I would appreciate your assistance with this at your earliest convenience.',
+    'Please let me know if you need any additional information or if there is anything further I should do.',
+  ];
+  let closing = 'Thank you for your time and consideration.\n\nKind regards,\n[Your Name]';
+
+  if (/(annual|sick|parental|maternity|paternity|military) leave|\btime off\b|\bvacation\b|\bholiday\b/.test(q)) {
+    subjectLine = 'Request for Annual Leave';
+    body = [
+      'I hope you are doing well.',
+      'I am writing to formally request annual leave from [Start Date] to [End Date]. During this period, I will ensure that all my current responsibilities are completed and that any outstanding work is properly handed over to my colleagues to minimize disruption.',
+      'I would appreciate your approval of this request. Please let me know if you require any additional information or if there are any arrangements I should make before my leave begins.',
+      'Thank you for your consideration. I look forward to your response.',
+    ];
+    closing = 'Kind regards,\n[Your Name]';
+  } else if (/resign|resignation|notice|leaving my (job|role)/.test(q)) {
+    subjectLine = 'Resignation — [Job Title]';
+    body = [
+      'Please accept this email as formal notice of my resignation from my position as [Job Title].',
+      'My last working day will be [Date]. I am committed to ensuring a smooth transition and will assist with handing over my responsibilities and supporting my colleagues during this period.',
+      'I am grateful for the opportunities I have had here and wish the team all the best.',
+    ];
+    closing = 'Sincerely,\n[Your Name]';
+  } else if (/apolog|sorry/.test(q)) {
+    subjectLine = 'Apology';
+    body = [
+      'I am writing to sincerely apologize for [what happened].',
+      'I understand the inconvenience this has caused, and I take full responsibility for it.',
+      'I have taken steps to ensure it does not happen again. Please let me know if there is anything I can do to make things right.',
+    ];
+    closing = 'Thank you for your understanding.\n\nSincerely,\n[Your Name]';
+  } else if (/thank|grateful|appreciat/.test(q)) {
+    subjectLine = 'Thank You';
+    body = [
+      'I wanted to take a moment to thank you for [the reason].',
+      'Your support has made a real difference, and I truly appreciate the time and effort you have put in.',
+    ];
+    closing = 'With thanks,\n[Your Name]';
+  } else if (/follow ?up|chase|check ?in/.test(q)) {
+    subjectLine = 'Follow-Up';
+    body = [
+      'I wanted to follow up on [topic] and check on the status when you have a moment.',
+      'Please let me know if there is anything you need from me to move this forward.',
+    ];
+    closing = 'Thank you,\n[Your Name]';
+  } else if (/remind/.test(q)) {
+    subjectLine = `Reminder: ${cap(topic)}`;
+    body = [
+      'This is a friendly reminder regarding ' + topic + '.',
+      'If anything has changed or you need more information, please let me know.',
+    ];
+    closing = 'Thank you,\n[Your Name]';
+  } else if (/intro/.test(q)) {
+    subjectLine = 'Introduction';
+    body = [
+      'I would like to introduce you to [Name].',
+      'They are [context], and I believe connecting the two of you could be mutually beneficial.',
+      'I will leave it to you both to arrange a time to speak.',
+    ];
+    closing = 'Best regards,\n[Your Name]';
+  } else if (/complaint|issue|unhappy|not happy/.test(q)) {
+    subjectLine = 'Regarding a Concern';
+    body = [
+      `I am writing to bring a concern to your attention regarding ${topic}.`,
+      'I would appreciate the opportunity to discuss this and find a resolution.',
+    ];
+    closing = 'Thank you for your attention to this.\n\nSincerely,\n[Your Name]';
+  } else if (/meeting|schedule|book|appointment/.test(q)) {
+    subjectLine = `Meeting Request: ${cap(topic)}`;
+    body = [
+      `I would like to arrange a meeting to discuss ${topic}.`,
+      'Please let me know which times work best for you over the coming days, and I will send an invite.',
+    ];
+    closing = 'Best regards,\n[Your Name]';
+  }
+
+  const out = [`**Subject:** ${subjectLine}`, '', greeting];
+  for (const p of body) out.push('', p);
+  out.push('', ...closing.split('\n'));
+  return out.join('\n');
+}
+
+function composeWriting(analysis: QueryAnalysis): string {
+  const subject = analysis.subject || 'your topic';
+  const q = analysis.raw.toLowerCase();
+
+  if (/\b(linkedin)\b/.test(q)) {
+    return [
+      `How ${cap(subject)} changed the way I work`,
+      '',
+      'A quick story from the field: the difference between talking about a result and actually delivering it comes down to a few small, repeatable choices. Here is what has held up for me:',
+      '',
+      '• Start with the outcome, not the activity. Know exactly what "done" looks like before the first step.',
+      '• Do the hard version first — the version you would not show anyone. Speed comes from iteration, not inspiration.',
+      '• Share the numbers. A claim without a figure is just an opinion.',
+      '',
+      'What is one small change you have made this quarter that moved the needle?',
+      '',
+      '#Leadership #Productivity #Growth',
+    ].join('\n');
+  }
+
+  if (/\b(caption|instagram)\b/.test(q)) {
+    return [
+      `The thing nobody tells you about ${subject}?`,
+      '',
+      'It takes longer than you think, and the first version is never the one you post. But every rep makes the next one smoother.',
+      '',
+      'Small steps, done consistently, compound faster than any shortcut.',
+      '',
+      'Save this for when you need the reminder.',
+    ].join('\n');
+  }
+
+  if (/\b(tweet|twitter|thread)\b/.test(q)) {
+    return [
+      `Hot take on ${subject}:`,
+      '',
+      'Most advice on this is optimized for looking smart, not for getting results.',
+      '',
+      'Do the boring, consistent thing for 90 days. Come back and tell me what happened.',
+    ].join('\n');
+  }
+
+  if (/\b(cover letter)\b/.test(q)) {
+    return [
+      `**Re: Application — [Role] at [Company]**`,
+      '',
+      'Dear Hiring Team,',
+      '',
+      `I am writing to apply for the [Role] position at [Company]. I have been following ${subject} closely, and your team\'s approach to it aligns directly with how I like to work.`,
+      '',
+      'In my most recent role, I delivered [quantified achievement] by [approach]. That experience taught me that the difference between good and great execution is [lesson].',
+      '',
+      'I would welcome the chance to bring that same focus to [Company]. I have attached my resume and would be glad to speak at your convenience.',
+      '',
+      'Best regards,',
+      '[Your Name]',
+      '[Phone] · [Email]',
+    ].join('\n');
+  }
+
+  if (/\b(resume|cv)\b/.test(q)) {
+    return [
+      `**Resume / CV Draft**`,
+      '',
+      '**Summary**',
+      `Professional focused on ${subject}, with a track record of delivering [quantified result] and driving [outcome]. Strong communicator who turns ambiguity into clear, executed plans.`,
+      '',
+      '**Experience**',
+      '• [Role] — [Company], [Dates]: Delivered [quantified achievement] by [action].',
+      '• [Role] — [Company], [Dates]: Led [initiative], improving [metric] by [X]%.',
+      '',
+      '**Skills**',
+      '• [Skill 1] · [Skill 2] · [Skill 3]',
+      '',
+      '**Education**',
+      '• [Degree], [Institution]',
+    ].join('\n');
+  }
+
+  // General article / blog / essay / proposal / report / story draft.
+  return [
+    `**${cap(subject)}**`,
+    '',
+    `The one thing most people get wrong about ${subject} is treating it as a single event instead of a process. The strongest outcomes come from a clear goal, honest feedback, and steady iteration — not from any single clever move.`,
+    '',
+    '**Why this matters**',
+    `Decisions about ${subject} compound. Getting the fundamentals right early saves far more time than fixing symptoms later, and it is the difference between progress and constant firefighting.`,
+    '',
+    '**What to focus on**',
+    '• Define what success looks like in concrete, measurable terms before doing anything else.',
+    '• Do the smallest version that produces a real outcome, then build from what you learn.',
+    '• Collect evidence early — actual numbers and real feedback beat opinions every time.',
+    '',
+    '**The common trap**',
+    'Chasing polish before proving the core idea works. Get the substance right first; the finish can wait.',
+    '',
+    '**Take the next step**',
+    `Pick the single most useful action for ${subject} and do it today. Progress is the only real strategy.`,
+  ].join('\n');
+}
+
+function composeBrainstorm(analysis: QueryAnalysis): string {
+  const subject = analysis.subject || 'your goal';
+  return [
+    `Ideas for ${subject}:`,
+    '',
+    '1. Start with the smallest possible version that proves the idea works — a single day of work beats a month of planning.',
+    '2. Repurpose what already exists: templates, playbooks, and past projects that can be remixed instead of rebuilt.',
+    '3. Focus on one channel or one audience segment first, and go deep before expanding.',
+    '4. Turn a constraint into the differentiator — limited budget, time, or tools often produce the most creative answers.',
+    '5. Talk to the people who would actually use it; their language will sharpen both the idea and the pitch.',
+    '6. Time-box a rough prototype and let feedback shape the next iteration rather than guessing.',
+    '7. Package the idea as a story — the version you could explain to a friend in one sentence.',
+    '8. If the first approach stalls, invert the problem: instead of "how do we make it work," ask "what is making it fail, and how do we remove that?"',
+    '',
+    'Pick the two that feel most natural, prototype them this week, and let the results decide.',
+  ].join('\n');
+}
+
+function composeSummarize(analysis: QueryAnalysis): string {
+  const text = analysis.raw;
+  const cleaned = text.replace(/^(please\s+)?(summarize|summarise|tl;?dr|in short|brief(ly)?|sum up)\b[\s\S]*$/i, '').trim();
+
+  if (cleaned.length < 120) {
+    return `Here's the short version: ${analysis.subject || 'paste the text you want summarized and I will condense it into the key points.'}`;
+  }
+
+  const sentences = cleaned.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s.length > 12);
+  const head = sentences[0] || '';
+  const picks = sentences
+    .slice(1)
+    .filter((s) => /\b(because|result|increase|decrease|per cent|%|\$|key|main|significantly|average|total|found|shows?|according)\b/i.test(s))
+    .slice(0, 3);
+
+  const lines: string[] = [];
+  lines.push('**Key points**');
+  if (head) lines.push(`• ${cap(head)}`);
+  for (const p of picks) lines.push(`• ${cap(p)}`);
+  lines.push('');
+  lines.push(`In short: ${cap(head || `the core of this is that ${analysis.subject}`)}`);
+  return lines.join('\n');
+}
+
+function composeTranslate(analysis: QueryAnalysis): string {
+  const text = analysis.raw.replace(/^(please\s+)?(translate|translation)\b/i, '').replace(/\b(in|into|to)\s+(french|spanish|german|japanese|chinese|italian|portuguese|russian|korean|arabic|hindi|english)\b/i, '').trim();
+  if (text.length < 2) {
+    return 'Paste the exact text you want translated and I will translate it for you.';
+  }
+  return [
+    `You asked me to translate this into [target language]:`,
+    '',
+    `> ${text}`,
+    '',
+    'Paste the full text and I will provide the translation directly.',
+  ].join('\n');
+}
+
+function composeAnalysis(analysis: QueryAnalysis): string {
+  const subject = analysis.subject || 'this file';
+  return [
+    `Here's how I'll work through ${subject}:`,
+    '',
+    '1. Attach the file or paste the relevant content so I can read the actual data — I work best from the real material, not from a description.',
+    '2. Tell me the specific question you want answered (a single number, a trend, a comparison).',
+    '3. I will extract the key facts and give you a direct, evidence-backed answer with the numbers called out.',
+    '',
+    'Once you share the content, the answer will be immediate — no research needed.',
+  ].join('\n');
+}
+
+function composeFactcheck(analysis: QueryAnalysis, evidence: EvidenceSentence[], results: ScoredSearchResult[]): string {
+  const { subject } = analysis;
+  const lines: string[] = [];
+
+  if (evidence.length === 0) {
+    lines.push(`I couldn't verify "${subject}" with the information available — treat it as unconfirmed until a reliable source backs it up.`);
+  } else {
+    lines.push(`Here's the verdict on "${subject}".\n`);
+    lines.push(weave(evidence.slice(0, 3)));
+    lines.push('');
+    lines.push('**In short**');
+    lines.push('The available information supports the claim, but specifics should still be double-checked against a primary source before you rely on them.');
+  }
+
+  if (analysis.showSources) lines.push(sources(results));
   return lines.join('\n');
 }
 
@@ -861,7 +1245,7 @@ function composeGeneral(analysis: QueryAnalysis, evidence: EvidenceSentence[], r
 
 /** Compose the final answer for a query that needs no web search. */
 export function composeNoSearch(analysis: QueryAnalysis): string {
-  return composeConversational(analysis);
+  return composeAnswer(analysis, [], []);
 }
 
 /** Compose the final answer from retrieved evidence. */
@@ -873,20 +1257,35 @@ export function composeAnswer(
   switch (analysis.intent) {
     case 'conversational':
       return composeConversational(analysis);
-    case 'planning':
-      return composePlanning(analysis, evidence, results);
+    case 'writing':
+      return composeWriting(analysis);
+    case 'email':
+      return composeEmail(analysis);
     case 'coding':
       return composeCoding(analysis, evidence, results);
-    case 'troubleshoot':
+    case 'debugging':
       return composeTroubleshoot(analysis, evidence, results);
+    case 'planning':
+      return composePlanning(analysis, evidence, results);
+    case 'brainstorm':
+      return composeBrainstorm(analysis);
+    case 'translation':
+      return composeTranslate(analysis);
+    case 'summarization':
+      return composeSummarize(analysis);
+    case 'analysis':
+      return composeAnalysis(analysis);
+    case 'research':
+    case 'current':
+      return composeResearch(analysis, evidence, results);
+    case 'factcheck':
+      return composeFactcheck(analysis, evidence, results);
     case 'compare':
       return composeCompare(analysis, evidence, results);
-    case 'explain':
-      return composeExplain(analysis, evidence, results);
-    case 'research':
-      return composeResearch(analysis, evidence, results);
     case 'recommend':
       return composeRecommend(analysis, evidence, results);
+    case 'explain':
+      return composeExplain(analysis, evidence, results);
     case 'general':
     default:
       return composeGeneral(analysis, evidence, results);

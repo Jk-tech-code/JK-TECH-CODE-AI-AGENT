@@ -19,9 +19,9 @@ function safeParse(raw: string): Partial<BrainSettings> {
   }
 }
 
-/** Env-driven default model label (always the search engine). */
+/** Env-driven default model (the deterministic search engine by default). */
 export function envDefaultModel(): string {
-  return 'search-engine';
+  return process.env.DEFAULT_MODEL || 'search-engine';
 }
 
 /** Whether the env has a search key (the only thing the Brain needs). */

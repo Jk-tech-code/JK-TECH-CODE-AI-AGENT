@@ -12,7 +12,6 @@ import { PromptInput } from './prompt-input';
 import { EmptyState } from './empty-state';
 import { readStream, StreamError } from '@/lib/chat/stream-client';
 import { detectKind, fileExtension } from './file-meta';
-import { DEFAULT_MODEL_OPTION, modelLabel } from '@/lib/core/model-catalog';
 import type { AttachmentItem, WorkspaceMessage } from './types';
 import { Button } from '@/components/ui/button';
 
@@ -111,11 +110,6 @@ export function ChatWorkspace() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // Selected logical model from the catalog (default: automatic routing).
-  // Typed as string so the TopNav can set it from the picker, then validated
-  // against the catalog on the server.
-  const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_OPTION.modelId);
-  const modelName = modelLabel(modelId);
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [nearBottom, setNearBottom] = useState(true);
@@ -135,7 +129,7 @@ export function ChatWorkspace() {
   const flushFrameRef = useRef<number | null>(null);
 
   // Live refs so stable callbacks always read current state
-  const state = useLatest({ input, messages, activeChatId, attachments, loading, modelId });
+  const state = useLatest({ input, messages, activeChatId, attachments, loading });
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     const el = scrollRef.current;
@@ -324,9 +318,6 @@ export function ChatWorkspace() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: contextMsgs,
-          // Logical model id chosen in the top-nav — validated server-side;
-          // unknown values fall back to the default model.
-          model: state.current.modelId,
           attachments: uploaded
             .filter(a => a.docId)
             .map(a => ({ id: a.docId!, fileType: fileExtension(a.name) || a.type, title: a.name })),
@@ -626,9 +617,6 @@ export function ChatWorkspace() {
       <TopNav
         onToggleSidebar={() => setSidebarCollapsed(v => !v)}
         onOpenSearch={handleOpenSearch}
-        modelName={modelName}
-        modelId={modelId}
-        onModelChange={setModelId}
       />
 
       <div className="flex min-h-0 flex-1">
