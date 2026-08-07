@@ -1,22 +1,28 @@
 /**
  * Brain generation abstraction.
  *
- * The Brain no longer talks to external LLM vendors. Instead a single
- * deterministic engine — the Search Engine — implements this interface.
- * Keeping the interface lets the Brain pipeline and its consumers stay
- * unchanged: the Brain calls `complete`/`stream`/`check` and gets an
- * evidence-based answer assembled from web search results.
+ * The Brain talks to providers through this interface. Today it has two
+ * backends:
+ *   • `deepseek` — a real language model (DeepSeek, OpenAI-compatible) that
+ *     produces full, natural ChatGPT-quality answers when `DEEPSEEK_API_KEY`
+ *     is set. This is the preferred engine.
+ *   • `search` — a deterministic, evidence-based engine that assembles answers
+ *     from ranked web search results (no external LLM). Used as a fallback.
+ *
+ * Keeping the interface lets the Brain's pipeline and its consumers stay
+ * unchanged: the Brain calls `complete`/`stream`/`check` and gets a
+ * well-formed answer back.
  */
 
-/** The single supported generation backend. */
-export type LLMProviderName = 'search';
+/** The supported generation backends. */
+export type LLMProviderName = 'search' | 'deepseek';
 
-/** All provider keys the Brain can select (registry order). */
-export const LLM_PROVIDER_NAMES: readonly LLMProviderName[] = ['search'];
+/** All provider keys the Brain can select (registry order, deepseek first). */
+export const LLM_PROVIDER_NAMES: readonly LLMProviderName[] = ['deepseek', 'search'];
 
 /** True when the string is a known provider key. */
 export function isLLMProviderName(value: string): value is LLMProviderName {
-  return value === 'search';
+  return value === 'deepseek' || value === 'search';
 }
 
 /** A single chat message in the Brain's provider-agnostic format. */

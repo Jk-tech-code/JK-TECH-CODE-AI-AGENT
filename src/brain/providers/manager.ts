@@ -1,12 +1,15 @@
 /**
  * Provider Manager — the single gateway between the Brain and its generation
- * backend. The Brain never imports a provider implementation directly; it only
+ * backends. The Brain never imports a provider implementation directly; it only
  * talks to this manager (through the `llm.ts` facade).
  *
- * The Brain now has exactly ONE engine: the deterministic Search Engine
- * (`search-engine.ts`). This manager keeps the same surface the Brain and its
- * consumers relied on (active provider, health check, completion, streaming,
- * diagnostics) so the rest of the app is unchanged.
+ * The Brain has two engines:
+ *   • `deepseek` — a real LLM (primary). Used whenever `DEEPSEEK_API_KEY` is set.
+ *   • `search`   — the deterministic Search Engine (fallback / when no LLM key).
+ *
+ * This manager keeps the same surface the Brain and its consumers relied on
+ * (active provider, health check, completion, streaming, diagnostics) while
+ * swapping in the best available engine.
  *
  * Security: secrets are read exclusively from `process.env`, never logged,
  * never serialized, and never included in error messages.
@@ -26,31 +29,35 @@ import {
   type ProviderStatus,
 } from './interface';
 import { searchEngineProvider } from './search-engine';
+import { deepseekProvider } from './deepseek';
 
 const managerLogger = createLogger('brain:provider-manager');
 
 /** Every engine the Brain can use, keyed by name. */
 export const PROVIDER_REGISTRY: Record<LLMProviderName, LLMProvider> = {
   search: searchEngineProvider,
+  deepseek: deepseekProvider,
 };
 
 /** Env var that backs a provider — kept for API compatibility. */
-export function providerApiKeyVar(_name: LLMProviderName): string {
-  return 'TAVILY_API_KEY';
+export function providerApiKeyVar(name: LLMProviderName): string {
+  return name === 'deepseek' ? 'DEEPSEEK_API_KEY' : 'TAVILY_API_KEY';
 }
 
 /** True when the engine has what it needs to make calls. */
 export function isProviderConfigured(name: LLMProviderName): boolean {
+  if (name === 'deepseek') return Boolean(process.env.DEEPSEEK_API_KEY);
   if (name === 'search') return Boolean(process.env.TAVILY_API_KEY || process.env.SERPAPI_API_KEY);
   return false;
 }
 
 export class ProviderManager {
   /**
-   * The active engine name. Always 'search' — the deterministic search engine.
+   * The active engine name. DeepSeek when an LLM key is present, otherwise the
+   * deterministic Search Engine.
    */
   activeProvider(): LLMProviderName {
-    return 'search';
+    return isProviderConfigured('deepseek') ? 'deepseek' : 'search';
   }
 
   /** Resolve the engine instance for a name (defaults to the active one). */
@@ -64,29 +71,58 @@ export class ProviderManager {
     return this.resolveProvider(name).check();
   }
 
-  /** The engine chain is always the single search engine. */
+  /** The engine chain: DeepSeek first (when configured), then Search Engine. */
   buildChain(_requested?: LLMProviderName, _fallback?: boolean): LLMProviderName[] {
-    return ['search'];
+    return isProviderConfigured('deepseek') ? ['deepseek', 'search'] : ['search'];
   }
 
   /**
-   * Non-streaming completion through the search engine. `LLM_TIMEOUT_MS` acts
-   * as an overall safety net on top of the engine's own runtime.
+   * Non-streaming completion through the best available engine. When DeepSeek
+   * fails (or a search key exists), it falls back to the Search Engine so the
+   * user always gets an answer. `LLM_TIMEOUT_MS` acts as an overall safety net.
    */
   async complete(messages: LLMMessage[], options: LLMOptions = {}): Promise<LLMCompleteResult> {
-    const { provider: _requested, fallback: _fallback, ...providerOptions } = options;
-
+    const { provider: requested, fallback, ...providerOptions } = options;
+    const primary = requested && isLLMProviderName(requested) ? requested : this.activeProvider();
     const timeoutMs = Number(process.env.LLM_TIMEOUT_MS || 0);
-    const call = this.resolveProvider(_requested).complete(messages, providerOptions);
-    return timeoutMs > 0 ? await this.withTimeout(call, timeoutMs) : await call;
+
+    const call = this.resolveProvider(primary).complete(messages, providerOptions);
+    try {
+      return timeoutMs > 0 ? await this.withTimeout(call, timeoutMs) : await call;
+    } catch (err) {
+      const canFallback = fallback !== false && primary === 'deepseek' && isProviderConfigured('search');
+      if (canFallback) {
+        managerLogger.warn('DeepSeek failed, falling back to Search Engine', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        const fallbackCall = this.resolveProvider('search').complete(messages, providerOptions);
+        return timeoutMs > 0 ? await this.withTimeout(fallbackCall, timeoutMs) : await fallbackCall;
+      }
+      throw err;
+    }
   }
 
   /**
-   * Streaming completion through the search engine.
+   * Streaming completion through the best available engine, with the same
+   * DeepSeek → Search Engine fallback on failure.
    */
   async *stream(messages: LLMMessage[], options: LLMOptions = {}): AsyncGenerator<LLMStreamChunk> {
-    const { provider: _requested, fallback: _fallback, ...providerOptions } = options;
-    yield* this.resolveProvider(_requested).stream(messages, providerOptions);
+    const { provider: requested, fallback, ...providerOptions } = options;
+    const primary = requested && isLLMProviderName(requested) ? requested : this.activeProvider();
+
+    try {
+      yield* this.resolveProvider(primary).stream(messages, providerOptions);
+    } catch (err) {
+      const canFallback = fallback !== false && primary === 'deepseek' && isProviderConfigured('search');
+      if (canFallback) {
+        managerLogger.warn('DeepSeek stream failed, falling back to Search Engine', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        yield* this.resolveProvider('search').stream(messages, providerOptions);
+        return;
+      }
+      throw err;
+    }
   }
 
   /** Best-effort metadata for the engine. */
@@ -94,7 +130,7 @@ export class ProviderManager {
     return this.resolveProvider(name).getInfo();
   }
 
-  /** Health status of the registered engine (safe to call repeatedly). */
+  /** Health status of the registered engines (safe to call repeatedly). */
   async availableProviders(): Promise<ProviderStatus[]> {
     return Promise.all(
       LLM_PROVIDER_NAMES.map((name) =>
@@ -110,12 +146,16 @@ export class ProviderManager {
 
   /** The configured default model for the engine. */
   getConfiguredModel(name?: LLMProviderName): string {
-    return this.resolveProvider(name).name === 'search' ? 'search-engine' : 'search-engine';
+    const key = name && isLLMProviderName(name) ? name : this.activeProvider();
+    if (key === 'deepseek') return process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+    return 'search-engine';
   }
 
-  /** Where the engine is hosted (none — the search APIs are remote). */
-  getProviderHost(_name?: LLMProviderName): string | undefined {
-    return undefined;
+  /** Where the engine is hosted (DeepSeek API, or none for the Search Engine). */
+  getProviderHost(name?: LLMProviderName): string | undefined {
+    return this.resolveProvider(name).name === 'deepseek'
+      ? (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com')
+      : undefined;
   }
 
   /**
@@ -129,14 +169,14 @@ export class ProviderManager {
     configuredProviders: Array<{ name: LLMProviderName; configured: boolean; model: string }>;
     env: Record<string, boolean>;
   } {
-    const envKeys = ['TAVILY_API_KEY', 'SERPAPI_API_KEY', 'LLM_TIMEOUT_MS'];
+    const envKeys = ['DEEPSEEK_API_KEY', 'DEEPSEEK_MODEL', 'DEEPSEEK_BASE_URL', 'TAVILY_API_KEY', 'SERPAPI_API_KEY', 'LLM_TIMEOUT_MS'];
     const env: Record<string, boolean> = {};
     for (const key of envKeys) env[key] = Boolean(process.env[key]);
 
     return {
       activeProvider: this.activeProvider(),
-      fallbackEnabled: false,
-      fallbackOrder: ['search'],
+      fallbackEnabled: isProviderConfigured('deepseek') && isProviderConfigured('search'),
+      fallbackOrder: this.buildChain(),
       configuredProviders: LLM_PROVIDER_NAMES.map((name) => ({
         name,
         configured: isProviderConfigured(name),
@@ -152,9 +192,11 @@ export class ProviderManager {
    */
   validateConfig(): { ok: boolean; errors: string[] } {
     const errors: string[] = [];
-    if (!isProviderConfigured('search')) {
+    const hasDeepSeek = isProviderConfigured('deepseek');
+    const hasSearch = isProviderConfigured('search');
+    if (!hasDeepSeek && !hasSearch) {
       errors.push(
-        'TAVILY_API_KEY / SERPAPI_API_KEY are not set, so the Brain cannot search. Add a key to .env.local (local) or the Vercel project settings (deployed).',
+        'No AI engine configured. Add DEEPSEEK_API_KEY to .env.local for ChatGPT-quality replies, or TAVILY_API_KEY / SERPAPI_API_KEY for the Search Engine.',
       );
     }
     return { ok: errors.length === 0, errors };

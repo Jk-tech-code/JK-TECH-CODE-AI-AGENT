@@ -152,6 +152,17 @@ function settingsError(message: string, retryable = true): BrainOutput {
   return { content: '', modelUsed: 'none', confidence: 0, latencyMs: 0, error: message, retryable };
 }
 
+/**
+ * Output-token budget for a real LLM. The Search Engine maps this to its result
+ * count; DeepSeek uses it as a generous ceiling so answers are complete.
+ */
+function tokenBudget(settings: BrainSettings): number {
+  const length = settings.responseLength || 'balanced';
+  if (length === 'detailed') return 4096;
+  if (length === 'short') return 1024;
+  return 2048;
+}
+
 /** Non-streaming Brain completion (no visible streaming status). */
 export async function brainComplete(req: BrainRequest, hooks?: BrainStreamHooks): Promise<BrainOutput> {
   const start = Date.now();
@@ -168,7 +179,7 @@ export async function brainComplete(req: BrainRequest, hooks?: BrainStreamHooks)
 
   try {
     const result = await complete(messages, {
-      maxTokens: plan.numResults * 100,
+      maxTokens: tokenBudget(settings),
       thinking: plan.thinking,
       provider,
       recencyDays: plan.recencyDays,
@@ -239,7 +250,7 @@ export async function* brainStream(
     let thinking = '';
 
     for await (const chunk of stream(messages, {
-      maxTokens: plan.numResults * 100,
+      maxTokens: tokenBudget(settings),
       thinking: plan.thinking,
       provider,
       recencyDays: plan.recencyDays,

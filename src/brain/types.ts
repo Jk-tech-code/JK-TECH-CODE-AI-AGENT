@@ -17,9 +17,9 @@ export type Complexity = 'low' | 'medium' | 'high';
 export type ReasoningLevel = 'low' | 'medium' | 'high';
 
 export interface BrainSettings {
-  /** Env-driven engine (always 'search'). Kept for API compatibility. */
+  /** Engine: 'deepseek' (real LLM) or 'search' (deterministic Search Engine). */
   provider: string;
-  /** Engine model label (always 'search-engine'). Kept for API compatibility. */
+  /** Engine model label (e.g. 'deepseek-chat' / 'search-engine'). */
   model: string;
   /** Number of search results consulted when building an answer (2–10). */
   numResults: number;

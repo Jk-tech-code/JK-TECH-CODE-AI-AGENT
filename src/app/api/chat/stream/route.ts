@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { securityGuard } from '@/lib/security/guard';
 import { brainStream } from '@/brain';
 import { loadSettings } from '@/brain/settings';
+import { activeProvider, getConfiguredModel } from '@/brain/providers/llm';
 import { createLogger } from '@/lib/logging/logger';
 import { rateLimit } from '@/lib/security/rate-limit';
 
@@ -105,9 +106,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Per-user Brain settings (falls back to env defaults for anonymous).
+    // Use the best available engine (DeepSeek LLM when configured, else the
+    // deterministic Search Engine).
     const settings = await loadSettings(user?.id);
-    settings.provider = 'search';
-    settings.model = 'search-engine';
+    settings.provider = activeProvider();
+    settings.model = getConfiguredModel();
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({

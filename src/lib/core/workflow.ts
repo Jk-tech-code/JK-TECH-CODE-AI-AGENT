@@ -289,10 +289,16 @@ export class AgentWorkflow {
   ): Promise<ScoredSearchResult[]> {
     if (!enabled || !query) return [];
     try {
-      await searchAggregator.init().catch((err: unknown) => {
-        logger.error('Search init failed', err, { requestId });
-        throw new AppError('Search engine unavailable', 502, 'SEARCH_UNAVAILABLE');
+      await searchAggregator.init();
+    } catch (err) {
+      // Search is optional web context — a live LLM answers without it.
+      logger.warn('Search unavailable; skipping web context', {
+        requestId,
+        error: err instanceof Error ? err.message : String(err),
       });
+      return [];
+    }
+    try {
       const results = await searchAggregator.search({ query, numResults: 5, recencyDays: 30 });
       logger.info('Search completed', { requestId, resultCount: results.length });
       return results;

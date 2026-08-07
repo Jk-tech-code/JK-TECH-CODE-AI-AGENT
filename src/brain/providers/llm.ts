@@ -85,19 +85,19 @@ export function getProviderHost(provider?: LLMProviderName): string | undefined 
   return providerManager.getProviderHost(provider);
 }
 
-/** Whether automatic cross-provider fallback is enabled (always false now). */
+/** Whether automatic cross-provider fallback is enabled (DeepSeek + Search). */
 export function fallbackEnabled(): boolean {
-  return false;
+  return isProviderConfigured('deepseek') && isProviderConfigured('search');
 }
 
-/** The engine chain (always just the search engine). */
+/** The engine chain (DeepSeek first, then the Search Engine). */
 export function fallbackOrder(): LLMProviderName[] {
-  return ['search'];
+  return providerManager.buildChain();
 }
 
-/** Ordered list of engines to try for a request (always the single engine). */
+/** Ordered list of engines to try for a request. */
 export function buildFallbackChain(_requested?: LLMProviderName, _fallback?: boolean): LLMProviderName[] {
-  return ['search'];
+  return providerManager.buildChain();
 }
 
 /** Health status of the registered engine. */

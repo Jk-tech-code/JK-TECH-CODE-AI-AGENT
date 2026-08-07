@@ -8,7 +8,8 @@
  * relies on — but generation is now deterministic and evidence-based instead
  * of calling an external LLM.
  */
-import { complete } from '@/brain/providers/llm';
+import { complete, validateConfig } from '@/brain/providers/llm';
+import { AppError } from '../error/handler';
 import { MODEL_REGISTRY, TASK_MODEL_MAP } from './model-catalog';
 import { createLogger } from '@/lib/logging/logger';
 import type {
@@ -36,12 +37,19 @@ export class Orchestrator {
   private fallbackChain: ModelId[][] = [];
 
   /**
-   * Validate that the generation engine is configured.
-   * Safe to call multiple times. Throws AppError 503 when no search key.
+   * Validate that a generation engine is configured (DeepSeek LLM or the
+   * Search Engine). Safe to call multiple times. Throws AppError 503 when no
+   * engine can generate.
    */
   async init(): Promise<void> {
-    const { searchAggregator } = await import('./search');
-    await searchAggregator.init();
+    const { ok, errors } = validateConfig();
+    if (!ok) {
+      throw new AppError(
+        errors[0] || 'No AI engine configured.',
+        503,
+        'AI_NOT_CONFIGURED',
+      );
+    }
   }
 
   async route(req: ModelRequest): Promise<ModelResponse> {
